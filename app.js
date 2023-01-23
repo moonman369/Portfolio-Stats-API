@@ -10,7 +10,7 @@ app.use(cors({
 }))
 
 app.get('/',(req,resp)=>{
-    resp.status(404).json({"status":"error","message":"please enter your username (eg: https://leetcodeapi-production.up.railway.app/dojeto)"})
+    resp.status(404).json({"status":"error","message":"please enter your username (eg: https://leetcode-api.cyclic.app/moonman369)"})
 })
 
 app.get('/:username',async (req,resp)=>{
