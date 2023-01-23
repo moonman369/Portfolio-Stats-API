@@ -1,11 +1,16 @@
 const express = require('express');
 const fetch = require("cross-fetch");
+const cors = require('cors')
 const app = express();
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
+
+app.use(cors({
+    origin: 'http://localhost:3000'
+}))
 
 app.get('/',(req,resp)=>{
-    resp.status(404).json({"status":"error","message":"please enter your username (ex: https://leetcodeapi-production.up.railway.app/dojeto)"})
+    resp.status(404).json({"status":"error","message":"please enter your username (eg: https://leetcodeapi-production.up.railway.app/dojeto)"})
 })
 
 app.get('/:username',async (req,resp)=>{
@@ -59,7 +64,7 @@ app.get('/:username',async (req,resp)=>{
 })
 
 app.listen(port,()=>{
-    console.log(`Working ${port}`);
+    console.log(`Server running on port: ${port}`);
 })
 
 
