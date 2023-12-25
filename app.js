@@ -77,25 +77,22 @@ app.get("/leetcode/:username", async (req, resp) => {
     };
     resp.status(200).json(obj);
   } catch (e) {
-    resp.status(404).json({ status: "error", message: "Username Not Found" });
+    resp.status(500).json({ status: "error", message: "Server Error" });
   }
 });
 
-app.get("/github/:username", async (req, resp) => {
+app.get("/refresh/:username", async (req, resp) => {
   try {
+    const start = Date.now();
     const options = {
       headers: {
         Accept: "application/vnd.github+json",
         Authorization:
-          "Bearer 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",
+          "Bearer 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",
         "X-GitHub-Api-Version": "2022-11-28",
       },
     };
-    const data = {
-      repos: 0,
-      commits: 0,
-      stars: 0,
-    };
+    let [reposCount, commitsCount, pullsCount, starsCount] = [0, 0, 0, 0];
     let repos = [];
     do {
       repos = await (
@@ -104,16 +101,56 @@ app.get("/github/:username", async (req, resp) => {
           options
         )
       ).json();
-
-      data.repos += repos.length;
+      console.log(repos);
+      reposCount += repos?.length;
     } while (repos.length >= 100);
-    await createStatsItem();
-    await updateStatsItem(repos.length, 0, 0, 0);
+
+    for (let repo of repos) {
+      starsCount += repo.stargazers_count;
+
+      const res = await (
+        await fetch(
+          `https://api.github.com/repos/${req.params.username}/${repo.name}/pulls?state=all`,
+          options
+        )
+      ).json();
+      pullsCount += res?.length;
+
+      const comms = await (
+        await fetch(
+          `https://api.github.com/repos/${req.params.username}/${repo.name}/commits?per_page=300`,
+          options
+        )
+      ).json();
+      for (let comm of comms) {
+        if (comm?.author?.login === `${req.params.username}`) {
+          commitsCount += 1;
+        }
+      }
+    }
+
+    await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
+    resp.status(200).json({
+      status: "success",
+      message: "Refresh success",
+      elapsed: `${Date.now() - start}`,
+    });
+  } catch (error) {
+    console.log(error);
+    resp.status(500).json({
+      status: "error",
+      message: "Server Error",
+    });
+  }
+});
+
+app.get("/github/:username", async (req, resp) => {
+  try {
     const stats = await getStats();
     console.log(stats);
-    resp.status(200).json(data);
+    resp.status(200).json(stats);
   } catch (e) {
-    resp.status(404).json({ status: "error", message: "Username Not Found" });
+    resp.status(500).json({ status: "error", message: "Server Error" });
     console.log(e);
   }
 });
