@@ -1,7 +1,10 @@
 const express = require("express");
 const fetch = require("cross-fetch");
 const cors = require("cors");
+const { createStatsItem, getStats, updateStatsItem } = require("./cyclic-db");
+// const {} = require("axios")
 const app = express();
+require("dotenv").config();
 
 const port = process.env.PORT || 5000;
 
@@ -19,7 +22,7 @@ app.get("/", (req, resp) => {
   });
 });
 
-app.get("/:username", async (req, resp) => {
+app.get("/leetcode/:username", async (req, resp) => {
   try {
     const LEETCODE_API_ENDPOINT = "https://leetcode.com/graphql";
     const DAILY_CODING_CHALLENGE_QUERY = `
@@ -75,6 +78,43 @@ app.get("/:username", async (req, resp) => {
     resp.status(200).json(obj);
   } catch (e) {
     resp.status(404).json({ status: "error", message: "Username Not Found" });
+  }
+});
+
+app.get("/github/:username", async (req, resp) => {
+  try {
+    const options = {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization:
+          "Bearer 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",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    };
+    const data = {
+      repos: 0,
+      commits: 0,
+      stars: 0,
+    };
+    let repos = [];
+    do {
+      repos = await (
+        await fetch(
+          `https://api.github.com/users/${req.params.username}/repos?per_page=100`,
+          options
+        )
+      ).json();
+
+      data.repos += repos.length;
+    } while (repos.length >= 100);
+    await createStatsItem();
+    await updateStatsItem(repos.length, 0, 0, 0);
+    const stats = await getStats();
+    console.log(stats);
+    resp.status(200).json(data);
+  } catch (e) {
+    resp.status(404).json({ status: "error", message: "Username Not Found" });
+    console.log(e);
   }
 });
 
