@@ -87,8 +87,7 @@ app.get("/refresh/:username", async (req, resp) => {
     const options = {
       headers: {
         Accept: "application/vnd.github+json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${process.env.GITHUB_PAT}`,
         "X-GitHub-Api-Version": "2022-11-28",
       },
     };
