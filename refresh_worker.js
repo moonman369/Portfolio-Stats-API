@@ -62,6 +62,7 @@ parentPort.on("message", async (username) => {
 
     await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
     console.log(`\n\n\n\n\n
+    END OF REFRESH JOB
     {
         "status": "success",
         "message": "Refresh success",
@@ -71,6 +72,7 @@ parentPort.on("message", async (username) => {
   } catch (error) {
     console.log(error);
     console.log(`\n\n\n\n\n
+    END OF REFRESH JOB
     {
         "status": "error",
         "message": "Server error",
