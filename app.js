@@ -1,7 +1,8 @@
 const express = require("express");
 const fetch = require("cross-fetch");
 const cors = require("cors");
-const { createStatsItem, getStats, updateStatsItem } = require("./cyclic-db");
+const { getStats } = require("./cyclic-db");
+const { Worker } = require("worker_threads");
 // const {} = require("axios")
 const app = express();
 require("dotenv").config();
@@ -75,15 +76,19 @@ app.get("/leetcode/:username", async (req, resp) => {
         data["data"]["matchedUser"]["contributions"]["points"],
       reputation: data["data"]["matchedUser"]["profile"]["reputation"],
     };
-    resp.status(200).json(obj);
+    if (response.status === 200) {
+      resp.status(200).json(obj);
+    } else {
+      resp.status(response.status).json({ message: response.statusText });
+    }
   } catch (e) {
     resp.status(500).json({ status: "error", message: "Server Error" });
   }
 });
 
 app.get("/refresh/:username", async (req, resp) => {
+  const refreshWorker = new Worker("./refresh_worker.js");
   try {
-    const start = Date.now();
     const options = {
       headers: {
         Accept: "application/vnd.github+json",
@@ -91,55 +96,21 @@ app.get("/refresh/:username", async (req, resp) => {
         "X-GitHub-Api-Version": "2022-11-28",
       },
     };
-    let [reposCount, commitsCount, pullsCount, starsCount] = [0, 0, 0, 0];
-    let repos = [];
-    do {
-      repos = await (
-        await fetch(
-          `https://api.github.com/users/${req.params.username}/repos?per_page=100`,
-          options
-        )
-      ).json();
-      console.log(repos);
-      reposCount += repos?.length;
-    } while (repos.length >= 100);
+    const response = await fetch(
+      `https://api.github.com/users/${req.params.username}`,
+      options
+    );
 
-    for (let repo of repos) {
-      starsCount += repo.stargazers_count;
-
-      const res = await (
-        await fetch(
-          `https://api.github.com/repos/${req.params.username}/${repo.name}/pulls?state=all`,
-          options
-        )
-      ).json();
-      pullsCount += res?.length;
-
-      const comms = await (
-        await fetch(
-          `https://api.github.com/repos/${req.params.username}/${repo.name}/commits?per_page=300`,
-          options
-        )
-      ).json();
-      for (let comm of comms) {
-        if (comm?.author?.login === `${req.params.username}`) {
-          commitsCount += 1;
-        }
-      }
+    console.log(response.status);
+    if (response.status === 200) {
+      refreshWorker.postMessage(`${req.params.username}`);
+      resp.status(200).json({ message: "Refresh worker has been triggered" });
+    } else {
+      resp.status(response.status).json({ message: `${response.statusText}` });
     }
-
-    await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
-    resp.status(200).json({
-      status: "success",
-      message: "Refresh success",
-      elapsed: `${Date.now() - start}`,
-    });
   } catch (error) {
     console.log(error);
-    resp.status(500).json({
-      status: "error",
-      message: "Server Error",
-    });
+    resp.status(500).json({ message: error });
   }
 });
 
