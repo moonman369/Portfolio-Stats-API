@@ -104,7 +104,9 @@ app.get("/refresh/:username", async (req, resp) => {
     console.log(response.status);
     if (response.status === 200) {
       refreshWorker.postMessage(`${req.params.username}`);
-      resp.status(200).json({ message: "Refresh worker has been triggered" });
+      resp
+        .status(200)
+        .json({ message: "Refresh worker has been triggered successfully..." });
     } else {
       resp.status(response.status).json({ message: `${response.statusText}` });
     }
