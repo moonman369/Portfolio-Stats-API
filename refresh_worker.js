@@ -72,7 +72,7 @@ parentPort.on("message", async (username) => {
   } catch (error) {
     console.log(error);
     console.log(`\n\n\n\n\n
-    END OF REFRESH JOB
+    END OF REFRESH JOB 
     {
         "status": "error",
         "message": "Server error",
