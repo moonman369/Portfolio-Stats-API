@@ -1,6 +1,6 @@
 require("dotenv").config();
-const { createStatsItem, getStats, updateStatsItem } = require("./cyclic-db");
 const { parentPort } = require("worker_threads");
+const { setStats } = require("./mongo");
 
 parentPort.on("message", async (username) => {
   const start = Date.now();
@@ -60,7 +60,8 @@ parentPort.on("message", async (username) => {
       }
     }
 
-    await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
+    // await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
+    await setStats(reposCount, commitsCount, pullsCount, starsCount);
     console.log(`\n\n\n\n\n
     END OF REFRESH JOB
     {

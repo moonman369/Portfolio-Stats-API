@@ -1,8 +1,9 @@
 const express = require("express");
+require("dotenv").config();
 const fetch = require("cross-fetch");
 const cors = require("cors");
-const { getStats } = require("./cyclic-db");
 const { Worker } = require("worker_threads");
+const { connect, getStats } = require("./mongo");
 // const {} = require("axios")
 const app = express();
 require("dotenv").config();
@@ -89,6 +90,7 @@ app.get("/leetcode/:username", async (req, resp) => {
 app.get("/refresh/:username", async (req, resp) => {
   const refreshWorker = new Worker("./refresh_worker.js");
   try {
+    await connect();
     const options = {
       headers: {
         Accept: "application/vnd.github+json",
