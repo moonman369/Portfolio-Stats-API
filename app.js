@@ -19,14 +19,19 @@ app.use(
 app.get("/", (req, resp) => {
   resp.status(404).json({
     status: "error",
-    message:
-      "please enter your username (eg: https://leetcode-api.cyclic.app/moonman369)",
+    message: {
+      endpoints: {
+        "/leetcode/{username}": "To fetch Leetcode stats",
+        "/github/{username}": "To fetch GitHub stats",
+      },
+    },
   });
 });
 
 app.get("/leetcode/:username", async (req, resp) => {
   try {
     const LEETCODE_API_ENDPOINT = "https://leetcode.com/graphql";
+    const visitor_ip = req.ip;
     const DAILY_CODING_CHALLENGE_QUERY = `
                 {    
                     allQuestionsCount { difficulty count }
@@ -76,6 +81,7 @@ app.get("/leetcode/:username", async (req, resp) => {
       contributionPoints:
         data["data"]["matchedUser"]["contributions"]["points"],
       reputation: data["data"]["matchedUser"]["profile"]["reputation"],
+      ipAddress: visitor_ip,
     };
     if (response.status === 200) {
       resp.status(200).json(obj);
@@ -119,10 +125,11 @@ app.get("/refresh/:username", async (req, resp) => {
 });
 
 app.get("/github/:username", async (req, resp) => {
+  const visitor_ip = req.ip;
   try {
     const stats = await getStats();
     console.log(stats);
-    resp.status(200).json(stats);
+    resp.status(200).json({ ...stats[0], ipAddress: visitor_ip });
   } catch (e) {
     resp.status(500).json({ status: "error", message: "Server Error" });
     console.log(e);
