@@ -129,7 +129,7 @@ app.get("/github/:username", async (req, resp) => {
   try {
     const stats = await getStats();
     console.log(stats);
-    resp.status(200).json({ ...stats[0], ipAddress: visitor_ip });
+    resp.status(200).json(stats);
   } catch (e) {
     resp.status(500).json({ status: "error", message: "Server Error" });
     console.log(e);
