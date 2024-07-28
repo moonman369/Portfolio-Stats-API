@@ -8,7 +8,7 @@ const { connect, getStats } = require("./mongo");
 const app = express();
 require("dotenv").config();
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8080;
 
 app.use(
   cors({
@@ -45,6 +45,8 @@ app.get("/leetcode/:username", async (req, resp) => {
                     }
                 }
                 `;
+
+    ("\n    query userProblemsSolved($username: String!) {\n  allQuestionsCount {\n    difficulty\n    count\n  }\n  matchedUser(username: $username) {\n    problemsSolvedBeatsStats {\n      difficulty\n      percentage\n    }\n    submitStatsGlobal {\n      acSubmissionNum {\n        difficulty\n        count\n      }\n    }\n  }\n}\n    ");
 
     const init = {
       method: "POST",
@@ -89,6 +91,7 @@ app.get("/leetcode/:username", async (req, resp) => {
       resp.status(response.status).json({ message: response.statusText });
     }
   } catch (e) {
+    console.log(e);
     resp.status(500).json({ status: "error", message: "Server Error" });
   }
 });
