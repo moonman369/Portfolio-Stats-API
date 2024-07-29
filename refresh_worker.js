@@ -21,10 +21,10 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      console.log(
-        "============================================= REPOS =============================================\n"
-      );
-      console.log(repos);
+      // console.log(
+      //   "============================================= REPOS =============================================\n"
+      // );
+      // console.log(repos);
       reposCount += repos?.length;
     } while (repos.length >= 100);
 
@@ -37,10 +37,10 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      console.log(
-        "\n\n\n============================================= PULLS =============================================\n"
-      );
-      console.log(res);
+      // console.log(
+      //   "\n\n\n============================================= PULLS =============================================\n"
+      // );
+      // console.log(res);
       pullsCount += res?.length;
 
       const comms = await (
@@ -49,10 +49,10 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      console.log(
-        "\n\n\n============================================= COMMITS =============================================\n"
-      );
-      console.log(comms);
+      // console.log(
+      //   "\n\n\n============================================= COMMITS =============================================\n"
+      // );
+      // console.log(comms);
       for (let comm of comms) {
         if (comm?.author?.login === `${username}`) {
           commitsCount += 1;
@@ -76,7 +76,7 @@ parentPort.on("message", async (username) => {
     END OF REFRESH JOB 
     {
         "status": "error",
-        "message": "Server error",
+        "message": ${error},
         "elapsed": ${Date.now() - start}
       }
     `);
