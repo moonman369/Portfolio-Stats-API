@@ -4,6 +4,7 @@ const fetch = require("cross-fetch");
 const cors = require("cors");
 const { Worker } = require("worker_threads");
 const { connect, getStats } = require("./mongo");
+const { default: axios } = require("axios");
 // const {} = require("axios")
 const app = express();
 require("dotenv").config();
@@ -30,32 +31,51 @@ app.get("/", (req, resp) => {
 
 app.get("/leetcode/:username", async (req, resp) => {
   try {
-    const LEETCODE_API_ENDPOINT = "https://leetcode.com/graphql";
+    const LEETCODE_API_ENDPOINT = "https://leetcode.com/graphql/";
     const visitor_ip = req.ip;
-    const DAILY_CODING_CHALLENGE_QUERY = `
-                {    
-                    allQuestionsCount { difficulty count }
-                        matchedUser(username: "${req.params.username}") {
-                                    username
-                                    contributions { points }
-                                    profile { reputation ranking }
-                                    submitStats  {
-                                    acSubmissionNum { difficulty count submissions } 
-                        }
-                    }
-                }
-                `;
+    // const DAILY_CODING_CHALLENGE_QUERY = `
+    // {
+    //     allQuestionsCount { difficulty count }
+    //         matchedUser(username: "${req.params.username}") {
+    //                     username
+    //                     contributions { points }
+    //                     profile { reputation ranking }
+    //                     submitStats  {
+    //                     acSubmissionNum { difficulty count submissions }
+    //         }
+    //     }
+    // }
+    // `;
 
-    ("\n    query userProblemsSolved($username: String!) {\n  allQuestionsCount {\n    difficulty\n    count\n  }\n  matchedUser(username: $username) {\n    problemsSolvedBeatsStats {\n      difficulty\n      percentage\n    }\n    submitStatsGlobal {\n      acSubmissionNum {\n        difficulty\n        count\n      }\n    }\n  }\n}\n    ");
+    const LEETCODE_GRAPHQL_QUERY =
+      "\n    query userSessionProgress($username: String!) {\n  allQuestionsCount {\n    difficulty\n    count\n  }\n  matchedUser(username: $username) {\n    submitStats {\n      acSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n      totalSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n    }\n  }\n}\n    ";
+    // const init = {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   // body: JSON.stringify({
+    //   //   query: LEETCODE_GRAPHQL_QUERY,
+    //   //   variables: {
+    //   //     username: req.params.username,
+    //   //   },
+    //   //   operationName: "userSessionProgress",
+    //   // }),
+    //   body: `{"query":"\n    query userSessionProgress($username: String!) {\n  allQuestionsCount {\n    difficulty\n    count\n  }\n  matchedUser(username: $username) {\n    submitStats {\n      acSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n      totalSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n    }\n  }\n}\n    ","variables":{"username":"moonman369"},"operationName":"userSessionProgress"}`,
+    // };
 
-    const init = {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: DAILY_CODING_CHALLENGE_QUERY }),
-    };
+    // const response = await fetch(LEETCODE_API_ENDPOINT, init);
+    // const data = await response.json();
+    // // const data = await response.toString();
+    // console.log(data);
 
-    const response = await fetch(LEETCODE_API_ENDPOINT, init);
-    const data = await response.json();
+    const reponse = await axios.post(LEETCODE_API_ENDPOINT, {
+      query: LEETCODE_GRAPHQL_QUERY,
+      variables: { username: req.params.username },
+      operationName: "userSessionProgress",
+    });
+
+    console.log(await reponse.data);
+
+    const data = await reponse.data;
 
     const obj = {
       status: "success",
@@ -79,13 +99,12 @@ app.get("/leetcode/:username", async (req, resp) => {
           "count"
         ],
       totalHard: data["data"]["allQuestionsCount"][3]["count"],
-      ranking: data["data"]["matchedUser"]["profile"]["ranking"],
-      contributionPoints:
-        data["data"]["matchedUser"]["contributions"]["points"],
-      reputation: data["data"]["matchedUser"]["profile"]["reputation"],
+      // contributionPoints:
+      //   data["data"]["matchedUser"]["contributions"]["points"],
+      // reputation: data["data"]["matchedUser"]["profile"]["reputation"],
       ipAddress: visitor_ip,
     };
-    if (response.status === 200) {
+    if ((await reponse.status) === 200) {
       resp.status(200).json(obj);
     } else {
       resp.status(response.status).json({ message: response.statusText });
@@ -114,7 +133,7 @@ app.get("/refresh/:username", async (req, resp) => {
 
     console.log(response.status);
     if (response.status === 200) {
-      refreshWorker.postMessage(`${req.params.username}`);
+      refreshWorker.postMessage([`${req.params.username}`, "test"]);
       resp
         .status(200)
         .json({ message: "Refresh worker has been triggered successfully..." });

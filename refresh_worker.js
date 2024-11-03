@@ -2,8 +2,9 @@ require("dotenv").config();
 const { parentPort } = require("worker_threads");
 const { setStats } = require("./mongo");
 
-parentPort.on("message", async (username) => {
+parentPort.on("message", async (params) => {
   const start = Date.now();
+  const username = params[0];
   try {
     const options = {
       headers: {
@@ -53,11 +54,12 @@ parentPort.on("message", async (username) => {
         "\n\n\n============================================= COMMITS =============================================\n"
       );
       console.log(comms);
-      for (let comm of comms) {
-        if (comm?.author?.login === `${username}`) {
-          commitsCount += 1;
-        }
-      }
+      commitsCount += comms.length;
+      // for (let comm of comms) {
+      //   if (comm?.author?.login === `${username}`) {
+      //     commitsCount += 1;
+      //   }
+      // }
     }
 
     // await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
@@ -76,7 +78,7 @@ parentPort.on("message", async (username) => {
     END OF REFRESH JOB 
     {
         "status": "error",
-        "message": "Server error",
+        "message": ${error},
         "elapsed": ${Date.now() - start}
       }
     `);

@@ -21,6 +21,7 @@
     "fetch": "^1.1.0",
     "mongodb": "^6.3.0",
     "nodemon": "^2.0.19",
+    "portfolio-stats-api": "file:",
     "request": "^2.88.2"
   }
 }
