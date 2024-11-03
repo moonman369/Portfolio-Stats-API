@@ -2,8 +2,9 @@ require("dotenv").config();
 const { parentPort } = require("worker_threads");
 const { setStats } = require("./mongo");
 
-parentPort.on("message", async (username) => {
+parentPort.on("message", async (params) => {
   const start = Date.now();
+  const username = params[0];
   try {
     const options = {
       headers: {
@@ -21,10 +22,10 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      // console.log(
-      //   "============================================= REPOS =============================================\n"
-      // );
-      // console.log(repos);
+      console.log(
+        "============================================= REPOS =============================================\n"
+      );
+      console.log(repos);
       reposCount += repos?.length;
     } while (repos.length >= 100);
 
@@ -37,10 +38,10 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      // console.log(
-      //   "\n\n\n============================================= PULLS =============================================\n"
-      // );
-      // console.log(res);
+      console.log(
+        "\n\n\n============================================= PULLS =============================================\n"
+      );
+      console.log(res);
       pullsCount += res?.length;
 
       const comms = await (
@@ -49,15 +50,16 @@ parentPort.on("message", async (username) => {
           options
         )
       ).json();
-      // console.log(
-      //   "\n\n\n============================================= COMMITS =============================================\n"
-      // );
-      // console.log(comms);
-      for (let comm of comms) {
-        if (comm?.author?.login === `${username}`) {
-          commitsCount += 1;
-        }
-      }
+      console.log(
+        "\n\n\n============================================= COMMITS =============================================\n"
+      );
+      console.log(comms);
+      commitsCount += comms.length;
+      // for (let comm of comms) {
+      //   if (comm?.author?.login === `${username}`) {
+      //     commitsCount += 1;
+      //   }
+      // }
     }
 
     // await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
