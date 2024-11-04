@@ -17,19 +17,21 @@ app.use(
   })
 );
 
-app.get("/", (req, resp) => {
+app.get("/", (req, res) => res.send("Express on Vercel"));
+
+app.get("/api/v1", (req, resp) => {
   resp.status(404).json({
     status: "error",
     message: {
       endpoints: {
-        "/leetcode/{username}": "To fetch Leetcode stats",
-        "/github/{username}": "To fetch GitHub stats",
+        "api/v1/leetcode/{username}": "To fetch Leetcode stats",
+        "api/v1/github/{username}": "To fetch GitHub stats",
       },
     },
   });
 });
 
-app.get("/leetcode/:username", async (req, resp) => {
+app.get("api/v1/leetcode/:username", async (req, resp) => {
   try {
     const LEETCODE_API_ENDPOINT = "https://leetcode.com/graphql/";
     const visitor_ip = req.ip;
@@ -115,7 +117,7 @@ app.get("/leetcode/:username", async (req, resp) => {
   }
 });
 
-app.get("/refresh/:username", async (req, resp) => {
+app.get("api/v1/refresh/:username", async (req, resp) => {
   const refreshWorker = new Worker("./refresh_worker.js");
   try {
     await connect();
@@ -146,7 +148,7 @@ app.get("/refresh/:username", async (req, resp) => {
   }
 });
 
-app.get("/github/:username", async (req, resp) => {
+app.get("api/v1/github/:username", async (req, resp) => {
   const visitor_ip = req.ip;
   try {
     const stats = await getStats();
