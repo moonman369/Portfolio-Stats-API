@@ -13,7 +13,8 @@ const port = process.env.PORT || 3000;
 
 app.use(
   cors({
-    origin: "https://devfoliomoonman369.netlify.app",
+    // origin: "https://devfoliomoonman369.netlify.app",
+    origin: "*",
   })
 );
 
