@@ -9,12 +9,12 @@ const { default: axios } = require("axios");
 const app = express();
 require("dotenv").config();
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8000;
 
 app.use(
   cors({
-    // origin: "https://devfoliomoonman369.netlify.app",
-    origin: "*",
+    origin: "https://devfoliomoonman369.netlify.app",
+    // origin: "*",
   })
 );
 

@@ -2,9 +2,33 @@
   "version": 2,
   "builds": [{ "src": "app.js", "use": "@vercel/node" }],
   "routes": [
-    { "src": "/api/v1", "dest": "/app.js" },
-    { "src": "/api/v1/leetcode/(.*)", "dest": "/app.js" },
-    { "src": "/api/v1/github/(.*)", "dest": "/app.js" },
-    { "src": "/api/v1/refresh/(.*)", "dest": "/app.js" }
+    {
+      "src": "/api/v1",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://devfoliomoonman369.netlify.app"
+      },
+      "dest": "/app.js"
+    },
+    {
+      "src": "/api/v1/leetcode/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://devfoliomoonman369.netlify.app"
+      },
+      "dest": "/app.js"
+    },
+    {
+      "src": "/api/v1/github/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://devfoliomoonman369.netlify.app"
+      },
+      "dest": "/app.js"
+    },
+    {
+      "src": "/api/v1/refresh/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "https://devfoliomoonman369.netlify.app"
+      },
+      "dest": "/app.js"
+    }
   ]
 }
