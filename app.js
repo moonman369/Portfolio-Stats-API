@@ -13,7 +13,7 @@ const port = process.env.PORT || 8000;
 
 app.use(
   cors({
-    origin: "https://devfoliomoonman369.netlify.app",
+    origin: ["https://devfoliomoonman369.netlify.app", "https://moonman.in"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
