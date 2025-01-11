@@ -55,6 +55,9 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
 
     const LEETCODE_GRAPHQL_QUERY =
       "\n    query userSessionProgress($username: String!) {\n  allQuestionsCount {\n    difficulty\n    count\n  }\n  matchedUser(username: $username) {\n    submitStats {\n      acSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n      totalSubmissionNum {\n        difficulty\n        count\n        submissions\n      }\n    }\n  }\n}\n    ";
+
+    const LEETCODE_GRAPHQL_QUERY_RANKING =
+      "\n    query userPublicProfile($username: String!) {\n  matchedUser(username: $username) {\n    profile {\n      ranking\n}\n  }\n}\n    ";
     // const init = {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
@@ -78,10 +81,16 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
       variables: { username: req.params.username },
       operationName: "userSessionProgress",
     });
+    const rankingReponse = await axios.post(LEETCODE_API_ENDPOINT, {
+      query: LEETCODE_GRAPHQL_QUERY_RANKING,
+      variables: { username: req.params.username },
+      operationName: "userPublicProfile",
+    });
 
     console.log(await reponse.data);
 
     const data = await reponse.data;
+    const rankingData = await rankingReponse.data;
 
     const obj = {
       status: "success",
@@ -108,7 +117,7 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
       // contributionPoints:
       //   data["data"]["matchedUser"]["contributions"]["points"],
       // reputation: data["data"]["matchedUser"]["profile"]["reputation"],
-      ipAddress: visitor_ip,
+      ranking: rankingData["data"]["matchedUser"]["profile"]["ranking"],
     };
     if ((await reponse.status) === 200) {
       resp.status(200).json(obj);
