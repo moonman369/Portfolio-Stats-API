@@ -321,7 +321,7 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
     if ((await reponse.status) === 200) {
       resp.status(200).json(obj);
     } else {
-      resp.status(response.status).json({ message: response.statusText });
+      resp.status(reponse.status).json({ message: reponse.statusText });
     }
   } catch (e) {
     console.log(e);
