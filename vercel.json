@@ -7,6 +7,10 @@
       "dest": "/app.js"
     },
     {
+      "src": "/api/v1/(.*)",
+      "dest": "/app.js"
+    },
+    {
       "src": "/api/v1/leetcode/(.*)",
       "dest": "/app.js"
     },
