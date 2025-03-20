@@ -7,11 +7,7 @@
       "dest": "/app.js"
     },
     {
-      "src": "/api-docs",
-      "dest": "/app.js"
-    },
-    {
-      "src": "/api/v1",
+      "src": "/api-docs/(.*)",
       "dest": "/app.js"
     },
     {
