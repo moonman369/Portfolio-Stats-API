@@ -3,7 +3,7 @@ require("dotenv").config();
 const fetch = require("cross-fetch");
 const cors = require("cors");
 const { Worker } = require("worker_threads");
-const { connect, getStats } = require("./mongo");
+const { connect, getStats } = require("../mongo");
 const { default: axios } = require("axios");
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
@@ -69,14 +69,14 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ["./app.js"],
+  apis: ["./api/index.js"],
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Home Route
-app.get("/", (req, res) => res.redirect("/api-docs"));
+app.get("/", (req, res) => res.redirect("/api/docs"));
 
 /**
  * @swagger
