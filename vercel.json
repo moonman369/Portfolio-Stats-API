@@ -22,5 +22,11 @@
       "src": "/api/v1/refresh/(.*)",
       "dest": "api/index.js"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/refresh/(.*)",
+      "schedule": "0 */12 * * * "
+    }
   ]
 }

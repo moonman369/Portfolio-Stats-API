@@ -175,21 +175,60 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
  */
 app.get("/api/v1/github/:username", async (req, resp) => {
   try {
-    const stats = [
-      {
-        _id: "65d4daea3c822f9149ce7684",
-        stats: {
-          repos: 106,
-          commits: 1854,
-          pulls: 45,
-          stars: 238,
-        },
-      },
-    ];
+    const stats = await getStats();
 
     resp.status(200).json(stats);
   } catch (e) {
     resp.status(500).json({ status: "error", message: "Server Error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/v1/refresh/{username}:
+ *   get:
+ *     summary: Refresh user stats
+ *     parameters:
+ *       - in: path
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Username to refresh stats
+ *     responses:
+ *       200:
+ *         description: Refresh worker has been triggered successfully
+ *       500:
+ *         description: Server error
+ */
+app.get("/api/v1/refresh/:username", async (req, resp) => {
+  const refreshWorker = new Worker("./refresh_worker.js");
+  try {
+    await connect();
+    const options = {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${process.env.GITHUB_PAT}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    };
+    const response = await fetch(
+      `https://api.github.com/users/${req.params.username}`,
+      options
+    );
+
+    console.log(response.status);
+    if (response.status === 200) {
+      refreshWorker.postMessage([`${req.params.username}`, "test"]);
+      resp
+        .status(200)
+        .json({ message: "Refresh worker has been triggered successfully..." });
+    } else {
+      resp.status(response.status).json({ message: `${response.statusText}` });
+    }
+  } catch (error) {
+    console.log(error);
+    resp.status(500).json({ message: error.message });
   }
 });
 
@@ -333,37 +372,6 @@ app.listen(port, () => {
 //   } catch (e) {
 //     console.log(e);
 //     resp.status(500).json({ status: "error", message: "Server Error" });
-//   }
-// });
-
-// app.get("/api/v1/refresh/:username", async (req, resp) => {
-//   const refreshWorker = new Worker("./refresh_worker.js");
-//   try {
-//     await connect();
-//     const options = {
-//       headers: {
-//         Accept: "application/vnd.github+json",
-//         Authorization: `Bearer ${process.env.GITHUB_PAT}`,
-//         "X-GitHub-Api-Version": "2022-11-28",
-//       },
-//     };
-//     const response = await fetch(
-//       `https//api.github.com/users/${req.params.username}`,
-//       options
-//     );
-
-//     console.log(response.status);
-//     if (response.status === 200) {
-//       refreshWorker.postMessage([`${req.params.username}`, "test"]);
-//       resp
-//         .status(200)
-//         .json({ message: "Refresh worker has been triggered successfully..." });
-//     } else {
-//       resp.status(response.status).json({ message: `${response.statusText}` });
-//     }
-//   } catch (error) {
-//     console.log(error);
-//     resp.status(500).json({ message: error });
 //   }
 // });
 
