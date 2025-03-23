@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { parentPort } = require("worker_threads");
 const { setStats } = require("./mongo");
+const { default: axios } = require("axios");
 
 parentPort.on("message", async (params) => {
   const start = Date.now();
@@ -13,57 +14,53 @@ parentPort.on("message", async (params) => {
         "X-GitHub-Api-Version": "2022-11-28",
       },
     };
-    let [reposCount, commitsCount, pullsCount, starsCount] = [0, 0, 0, 0];
-    let repos = [];
-    do {
-      repos = await (
-        await fetch(
-          `https://api.github.com/users/${username}/repos?per_page=100`,
-          options
-        )
-      ).json();
-      console.log(
-        "============================================= REPOS =============================================\n"
-      );
-      console.log(repos);
-      reposCount += repos?.length;
-    } while (repos.length >= 100);
+    console.log("Starting refresh job...");
 
-    for (let repo of repos) {
-      starsCount += repo.stargazers_count;
+    let totalRepos = 0;
+    let totalCommits = 0;
+    let totalStars = 0;
+    let totalPulls = 0;
 
-      const res = await (
-        await fetch(
-          `https://api.github.com/repos/${username}/${repo.name}/pulls?state=all`,
-          options
-        )
-      ).json();
-      console.log(
-        "\n\n\n============================================= PULLS =============================================\n"
+    // Fetch commits, stars, and pull requests from each repo
+    for (let i = 1; i <= 2; i++) {
+      // Get repo count
+      const reposResponse = await axios.get(
+        `https://api.github.com/users/${username}/repos?per_page=100&page=${i}`,
+        options
       );
-      console.log(res);
-      pullsCount += res?.length;
+      totalRepos += reposResponse.data.length;
 
-      const comms = await (
-        await fetch(
-          `https://api.github.com/repos/${username}/${repo.name}/commits?per_page=300`,
+      for (const repo of reposResponse.data) {
+        const repoName = repo.name;
+
+        // Get commit count (approximate, depends on API limits)
+        const commitsResponse = await axios.get(
+          `https://api.github.com/repos/${username}/${repoName}/commits?per_page=100&page=${i}`,
           options
-        )
-      ).json();
-      console.log(
-        "\n\n\n============================================= COMMITS =============================================\n"
-      );
-      console.log(comms);
-      commitsCount += comms.length;
-      // for (let comm of comms) {
-      //   if (comm?.author?.login === `${username}`) {
-      //     commitsCount += 1;
-      //   }
-      // }
+        );
+        totalCommits += commitsResponse.data.length;
+
+        // Get star count
+        totalStars += repo.stargazers_count;
+
+        // Get pull request count
+        const pullsResponse = await axios.get(
+          `https://api.github.com/repos/${username}/${repoName}/pulls?state=all&per_page=1`,
+          options
+        );
+        totalPulls += pullsResponse.data.length;
+      }
     }
 
+    console.log({
+      totalRepos,
+      totalCommits,
+      totalStars,
+      totalPulls,
+    });
+
     // await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
-    await setStats(reposCount, commitsCount, pullsCount, starsCount);
+    await setStats(totalRepos, totalCommits, totalPulls, totalStars);
     console.log(`\n\n\n\n\n
     END OF REFRESH JOB
     {
