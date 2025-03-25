@@ -111,12 +111,26 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
         }
       }
     }`;
+    const LEETCODE_GRAPHQL_QUERY_RANKING = `query userPublicProfile($username: String!) {
+      matchedUser(username: $username) {
+          profile {
+            ranking
+          }
+        }
+      }`;
 
-    const response = await axios.post(LEETCODE_API_ENDPOINT, {
-      query: LEETCODE_GRAPHQL_QUERY,
-      variables: { username: req.params.username },
-      operationName: "userSessionProgress",
-    });
+    const [response, rankingResponse] = await Promise.all([
+      axios.post(LEETCODE_API_ENDPOINT, {
+        query: LEETCODE_GRAPHQL_QUERY,
+        variables: { username: req.params.username },
+        operationName: "userSessionProgress",
+      }),
+      axios.post(LEETCODE_API_ENDPOINT, {
+        query: LEETCODE_GRAPHQL_QUERY_RANKING,
+        variables: { username: req.params.username },
+        operationName: "userPublicProfile",
+      }),
+    ]);
 
     const data = response.data;
     const obj = {
@@ -141,7 +155,8 @@ app.get("/api/v1/leetcode/:username", async (req, resp) => {
           "count"
         ],
       totalHard: data["data"]["allQuestionsCount"][3]["count"],
-      ranking: 512680, // Mock ranking since it's not fetched in this query
+      ranking:
+        rankingResponse["data"]["data"]["matchedUser"]["profile"]["ranking"], // Mock ranking since it's not fetched in this query
     };
 
     resp.status(200).json(obj);
