@@ -200,16 +200,9 @@ app.get("/api/v1/github/:username", async (req, resp) => {
 
 /**
  * @swagger
- * /api/v1/refresh/{username}:
+ * /api/v1/refresh/:
  *   get:
  *     summary: Refresh user stats
- *     parameters:
- *       - in: path
- *         name: username
- *         required: true
- *         schema:
- *           type: string
- *         description: Username to refresh stats
  *     responses:
  *       200:
  *         description: Refresh worker has been triggered successfully
