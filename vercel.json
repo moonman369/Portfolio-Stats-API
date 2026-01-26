@@ -3,23 +3,7 @@
   "builds": [{ "src": "api/index.js", "use": "@vercel/node" }],
   "routes": [
     {
-      "src": "/",
-      "dest": "api/index.js"
-    },
-    {
-      "src": "/api/docs(.*)",
-      "dest": "api/index.js"
-    },
-    {
-      "src": "/api/v1/leetcode/(.*)",
-      "dest": "api/index.js"
-    },
-    {
-      "src": "/api/v1/github/(.*)",
-      "dest": "api/index.js"
-    },
-    {
-      "src": "/api/v1/refresh/(.*)",
+      "src": "/(.*)",
       "dest": "api/index.js"
     }
   ],
