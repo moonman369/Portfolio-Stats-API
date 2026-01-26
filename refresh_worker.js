@@ -3,52 +3,95 @@ const { parentPort } = require("worker_threads");
 const { setStats } = require("./mongo");
 const { default: axios } = require("axios");
 
-parentPort.on("message", async (params) => {
+const GITHUB_GRAPHQL_API_ENDPOINT = "https://api.github.com/graphql";
+
+const GITHUB_GRAPHQL_QUERY = `
+  query ($username: String!, $afterCursor: String) {
+    user(login: $username) {
+      repositories(
+        first: 100
+        after: $afterCursor
+        ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]
+        isFork: false
+        orderBy: {field: CREATED_AT, direction: DESC}
+      ) {
+        totalCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          name
+          visibility
+          stargazers {
+            totalCount
+          }
+          pullRequests(states: [OPEN, CLOSED, MERGED]) {
+            totalCount
+          }
+          defaultBranchRef {
+            target {
+              ... on Commit {
+                history {
+                  totalCount
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+// parentPort.on("message", async (params) => {
+//   await refreshStats(params);
+//   parentPort.close();
+// });
+
+const refreshStats = async (params) => {
   const start = Date.now();
   const username = params[0];
   try {
     const options = {
       headers: {
-        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.GITHUB_PAT}`,
-        "X-GitHub-Api-Version": "2022-11-28",
       },
     };
     console.log("Starting refresh job...");
 
-    let totalRepos = 0;
+    let allRepos = [];
+    let hasNextPage = true;
+    let afterCursor = null;
+
+    console.log(`hasNextPage: ${hasNextPage}`);
+    while (hasNextPage) {
+      const response = await axios.post(
+        GITHUB_GRAPHQL_API_ENDPOINT,
+        {
+          query: GITHUB_GRAPHQL_QUERY,
+          variables: { username, afterCursor },
+        },
+        options,
+      );
+
+      const userData = response.data.data.user;
+      allRepos = allRepos.concat(userData.repositories.nodes);
+      hasNextPage = userData.repositories.pageInfo.hasNextPage;
+      afterCursor = userData.repositories.pageInfo.endCursor;
+    }
+
+    const totalRepos = allRepos.length;
     let totalCommits = 0;
     let totalStars = 0;
     let totalPulls = 0;
 
-    // Fetch commits, stars, and pull requests from each repo
-    for (let i = 1; i <= 2; i++) {
-      // Get repo count
-      const reposResponse = await axios.get(
-        `https://api.github.com/users/${username}/repos?per_page=100&page=${i}`,
-        options
-      );
-      totalRepos += reposResponse.data.length;
-
-      for (const repo of reposResponse.data) {
-        const repoName = repo.name;
-
-        // Get commit count (approximate, depends on API limits)
-        const commitsResponse = await axios.get(
-          `https://api.github.com/repos/${username}/${repoName}/commits?per_page=100&page=${i}`,
-          options
-        );
-        totalCommits += commitsResponse.data.length;
-
-        // Get star count
-        totalStars += repo.stargazers_count;
-
-        // Get pull request count
-        const pullsResponse = await axios.get(
-          `https://api.github.com/repos/${username}/${repoName}/pulls?state=all&per_page=1`,
-          options
-        );
-        totalPulls += pullsResponse.data.length;
+    for (const repo of allRepos) {
+      totalStars += repo.stargazers.totalCount;
+      totalPulls += repo.pullRequests.totalCount;
+      if (repo.defaultBranchRef) {
+        totalCommits += repo.defaultBranchRef.target.history.totalCount;
       }
     }
 
@@ -59,25 +102,30 @@ parentPort.on("message", async (params) => {
       totalPulls,
     });
 
-    // await updateStatsItem(reposCount, commitsCount, pullsCount, starsCount);
     await setStats(totalRepos, totalCommits, totalPulls, totalStars);
-    console.log(`\n\n\n\n\n
-    END OF REFRESH JOB
-    {
-        "status": "success",
-        "message": "Refresh success",
-        "elapsed": ${Date.now() - start}
-      }
-    `);
+    console.log(
+      `\n\n\n\n\n\n    END OF REFRESH JOB\n    {\n        "status": "success",\n        "message": "Refresh success",\n        "elapsed": ${Date.now() - start}\n      }\n    `,
+    );
+    return {
+      status: "success",
+      message: "Refresh success",
+      elapsed: Date.now() - start,
+      totalRepos,
+      totalCommits,
+      totalStars,
+      totalPulls,
+    };
   } catch (error) {
     console.log(error);
-    console.log(`\n\n\n\n\n
-    END OF REFRESH JOB 
-    {
-        "status": "error",
-        "message": ${error},
-        "elapsed": ${Date.now() - start}
-      }
-    `);
+    console.log(
+      `\n\n\n\n\n\n    END OF REFRESH JOB\n    {\n        "status": "error",\n        "message": ${error},\n        "elapsed": ${Date.now() - start}\n      }\n    `,
+    );
+    return {
+      status: "error",
+      message: error,
+      elapsed: Date.now() - start,
+    };
   }
-});
+};
+
+module.exports = { refreshStats };
