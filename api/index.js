@@ -8,6 +8,7 @@ const leetcodeRouter = require("../src/routes/leetcode");
 const githubRouter = require("../src/routes/github");
 const refreshRouter = require("../src/routes/refresh");
 const chatRouter = require("../src/routes/chat");
+const moonmindRouter = require("../src/routes/moonmind");
 const swaggerDocs = require("../src/swagger");
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/api/v1/leetcode", leetcodeRouter);
 app.use("/api/v1/github", githubRouter);
 app.use("/api/v1/refresh", refreshRouter);
 app.use("/chat", chatRouter);
+app.use("/api/moonmind", moonmindRouter);
 
 app.listen(port, async () => {
   await connectToDatabase();

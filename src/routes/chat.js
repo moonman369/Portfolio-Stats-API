@@ -41,6 +41,7 @@ router.post("/", async (req, res) => {
     });
     res.status(200).json(result);
   } catch (error) {
+    console.error(error);
     if (error instanceof MoonMindError) {
       return res.status(400).json({
         status: "error",
