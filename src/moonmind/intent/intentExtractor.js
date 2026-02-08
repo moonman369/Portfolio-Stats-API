@@ -1,16 +1,21 @@
 const { createChatCompletion } = require("../adapters/openaiClient");
-const { INTENT_REPORT_VERSION } = require("./intentReportSchema");
+const {
+  INTENT_REPORT_VERSION,
+  intentReportSchema,
+} = require("./intentReportSchema");
 
 const INTENT_MODEL = process.env.MOONMIND_INTENT_MODEL || "gpt-4o-mini";
 
 function buildIntentPrompt({ prompt, requestId, sessionId }) {
+  const schemaJson = JSON.stringify(intentReportSchema, null, 2);
   return [
     {
       role: "system",
       content: [
         "You are a deterministic intent extraction engine.",
         "Return ONLY a JSON object that matches the provided schema.",
-        "Never include markdown or extra keys.",
+        "Do not answer the user, do not explain, do not add text.",
+        "Schema violations are fatal. Do not include markdown or extra keys.",
       ].join(" "),
     },
     {
@@ -19,15 +24,20 @@ function buildIntentPrompt({ prompt, requestId, sessionId }) {
         `Request ID: ${requestId}`,
         `Session ID: ${sessionId ?? "null"}`,
         `User prompt: ${prompt}`,
-        "Schema requirements:",
-        "- version must be 1.0",
-        "- intent must be one of github_stats, leetcode_stats, portfolio_docs, capabilities, out_of_scope, unknown",
-        "- entities.githubUsername and entities.leetcodeUsername can be null",
-        "- dataSources must list required sources",
-        "- constraints.limit must be null or positive integer",
-        "- response.mode must be raw, grounded, or unknown",
-        "- response.format must be json or text",
-        "- safety.outOfScope must be true only for non-portfolio requests",
+        "Intent rules:",
+        "- Use intent \"out_of_scope\" only for requests unrelated to portfolio data.",
+        "- Use intent \"unknown\" when intent is ambiguous or cannot be determined.",
+        "- If intent is github_stats, include dataSources: [\"mongo_github_stats\"].",
+        "- If intent is leetcode_stats, include dataSources: [\"leetcode_graphql\"].",
+        "- If intent is portfolio_docs, include dataSources: [\"mongo_vector_docs\"].",
+        "- If intent is capabilities, dataSources must be [].",
+        "- If intent is out_of_scope, safety.outOfScope must be true and include reasons.",
+        "- If intent is unknown, safety.outOfScope must be false.",
+        "Response rules:",
+        "- response.mode must be raw for structured data requests, grounded for summaries, unknown for missing data.",
+        "- response.format must be json for raw, text for grounded or unknown.",
+        "JSON Schema (verbatim):",
+        schemaJson,
       ].join("\n"),
     },
   ];
