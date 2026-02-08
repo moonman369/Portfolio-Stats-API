@@ -141,7 +141,7 @@ If deploying elsewhere, ensure:
 ## Security notes
 - Do not expose `GITHUB_PAT` or `REFRESH_SECRET`.
 - Restrict the refresh endpoint to internal usage only.
-- CORS origins are hardcoded in `api/index.js` — update them for your domains.
+- CORS origins are hardcoded in `api/index.js` ï¿½ update them for your domains.
 
 ## Troubleshooting
 - Mongo connection issues: verify `MONGO_URI` and network access to your cluster.
