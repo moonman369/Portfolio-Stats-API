@@ -17,8 +17,8 @@ require("dotenv").config();
  *         description: Server error
  */
 router.get("/", async (req, resp) => {
-  if (req.query.secret !== process.env.REFRESH_SECRET) {
-    // console.log(req.query.secret, process.env.REFRESH_SECRET);
+  if (req.query["secret"] !== process.env.REFRESH_SECRET) {
+    console.debug(req.query);
     return resp.status(401).json({
       message: "You are not authorized to perform this action",
     });
