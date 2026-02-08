@@ -7,10 +7,13 @@ const { connectToDatabase } = require("../mongo");
 const leetcodeRouter = require("../src/routes/leetcode");
 const githubRouter = require("../src/routes/github");
 const refreshRouter = require("../src/routes/refresh");
+const chatRouter = require("../src/routes/chat");
 const swaggerDocs = require("../src/swagger");
 
 const app = express();
 const port = process.env.PORT || 8000;
+
+app.use(express.json({ limit: "1mb" }));
 
 // CORS configuration
 app.use(
@@ -32,6 +35,7 @@ app.get("/", (req, res) => res.redirect("/api/docs"));
 app.use("/api/v1/leetcode", leetcodeRouter);
 app.use("/api/v1/github", githubRouter);
 app.use("/api/v1/refresh", refreshRouter);
+app.use("/chat", chatRouter);
 
 app.listen(port, async () => {
   await connectToDatabase();
