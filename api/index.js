@@ -36,7 +36,7 @@ app.get("/", (req, res) => res.redirect("/api/docs"));
 app.use("/api/v1/leetcode", leetcodeRouter);
 app.use("/api/v1/github", githubRouter);
 app.use("/api/v1/refresh", refreshRouter);
-app.use("/chat", chatRouter);
+app.use("/api/v1/chat", chatRouter);
 app.use("/api/moonmind", moonmindRouter);
 
 app.listen(port, async () => {

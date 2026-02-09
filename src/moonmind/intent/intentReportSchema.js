@@ -13,6 +13,7 @@ const intentReportSchema = {
     "constraints",
     "response",
     "safety",
+    "message",
     "confidence",
   ],
   properties: {
@@ -26,6 +27,7 @@ const intentReportSchema = {
         "leetcode_stats",
         "portfolio_docs",
         "capabilities",
+        "certifications",
         "out_of_scope",
         "unknown",
       ],
@@ -48,11 +50,7 @@ const intentReportSchema = {
       type: "array",
       items: {
         type: "string",
-        enum: [
-          "mongo_github_stats",
-          "leetcode_graphql",
-          "mongo_vector_docs",
-        ],
+        enum: ["mongo_github_stats", "leetcode_graphql", "mongo_vector_docs"],
       },
     },
     constraints: {
@@ -89,6 +87,7 @@ const intentReportSchema = {
         },
       },
     },
+    message: { type: "string", maxLength: 160 },
     confidence: { type: "number", minimum: 0, maximum: 1 },
   },
 };
