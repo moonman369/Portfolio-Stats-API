@@ -1,4 +1,5 @@
 const { createChatCompletion } = require("../adapters/openaiClient");
+const { debugLog } = require("../utils/debug");
 
 const RESPONSE_MODEL = process.env.MOONMIND_RESPONSE_MODEL || "gpt-4o-mini";
 const GREETING_MODEL = process.env.MOONMIND_GREETING_MODEL || RESPONSE_MODEL;
@@ -75,6 +76,10 @@ function buildGroundedPrompt(intentReport, retrievalResult, style) {
 }
 
 async function composeGreeting(prompt) {
+  debugLog("response.composeGreeting.start", {
+    model: GREETING_MODEL,
+    promptLength: typeof prompt === "string" ? prompt.length : 0,
+  });
   const messages = buildGreetingPrompt(prompt);
   const completion = await createChatCompletion({
     model: GREETING_MODEL,
@@ -83,10 +88,17 @@ async function composeGreeting(prompt) {
   });
 
   const content = completion.choices?.[0]?.message?.content?.trim();
+  debugLog("response.composeGreeting.success", {
+    hasContent: Boolean(content),
+  });
   return content || "Hello!";
 }
 
 async function composeFactual(prompt) {
+  debugLog("response.composeFactual.start", {
+    model: FACTUAL_MODEL,
+    promptLength: typeof prompt === "string" ? prompt.length : 0,
+  });
   const messages = buildFactualPrompt(prompt);
   const completion = await createChatCompletion({
     model: FACTUAL_MODEL,
@@ -95,10 +107,19 @@ async function composeFactual(prompt) {
   });
 
   const content = completion.choices?.[0]?.message?.content?.trim();
+  debugLog("response.composeFactual.success", {
+    hasContent: Boolean(content),
+  });
   return content || "unknown";
 }
 
 async function composeGroundedResponse(intentReport, retrievalResult, style) {
+  debugLog("response.composeGrounded.start", {
+    model: RESPONSE_MODEL,
+    style,
+    itemCount: retrievalResult?.items?.length ?? 0,
+    intentSubtype: intentReport?.intentSubtype,
+  });
   const messages = buildGroundedPrompt(intentReport, retrievalResult, style);
   const completion = await createChatCompletion({
     model: RESPONSE_MODEL,
@@ -107,6 +128,9 @@ async function composeGroundedResponse(intentReport, retrievalResult, style) {
   });
 
   const content = completion.choices?.[0]?.message?.content?.trim();
+  debugLog("response.composeGrounded.success", {
+    hasContent: Boolean(content),
+  });
   return content || "unknown";
 }
 

@@ -1,4 +1,5 @@
 const { createChatCompletion } = require("../adapters/openaiClient");
+const { debugLog, serializeError } = require("../utils/debug");
 const {
   INTENT_REPORT_VERSION,
   intentReportSchema,
@@ -90,12 +91,28 @@ function buildIntentPrompt({ prompt, requestId, sessionId }) {
 }
 
 async function extractIntent({ prompt, requestId, sessionId }) {
+  debugLog("extractIntent.start", {
+    requestId,
+    sessionId: sessionId ?? null,
+    promptLength: typeof prompt === "string" ? prompt.length : 0,
+  });
+
   const messages = buildIntentPrompt({ prompt, requestId, sessionId });
+  debugLog("extractIntent.openai.request", {
+    requestId,
+    model: INTENT_MODEL,
+    messageCount: messages.length,
+  });
+
   const completion = await createChatCompletion({
     model: INTENT_MODEL,
     messages,
     responseFormat: { type: "json_object" },
     temperature: 0,
+  });
+  debugLog("extractIntent.openai.response", {
+    requestId,
+    choices: completion?.choices?.length ?? 0,
   });
 
   const content = completion.choices?.[0]?.message?.content;
@@ -103,10 +120,26 @@ async function extractIntent({ prompt, requestId, sessionId }) {
     throw new Error("Intent model returned empty response");
   }
 
-  const report = JSON.parse(content);
+  let report;
+  try {
+    report = JSON.parse(content);
+  } catch (error) {
+    debugLog("extractIntent.parse.error", {
+      requestId,
+      error: serializeError(error),
+      contentPreview: content.slice(0, 400),
+    });
+    throw error;
+  }
+
   report.version = INTENT_REPORT_VERSION;
   report.requestId = requestId;
   report.sessionId = sessionId ?? null;
+  debugLog("extractIntent.success", {
+    requestId,
+    intentCategory: report.intentCategory,
+    intentSubtype: report.intentSubtype,
+  });
   return report;
 }
 

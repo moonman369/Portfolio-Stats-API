@@ -1,5 +1,6 @@
 const { connectToDatabase } = require("../../../mongo");
 const { vectorSearch } = require("./vectorSearch");
+const { debugLog } = require("../utils/debug");
 
 const VECTOR_COLLECTION =
   process.env.MOONMIND_VECTOR_COLLECTION || "moonmind_documents";
@@ -53,6 +54,7 @@ function buildMetadataQuery(filters) {
 async function metadataSearch({ filters, limit }) {
   const query = buildMetadataQuery(filters);
   if (!query) {
+    debugLog("fullSearch.metadata.skip.noQuery");
     return [];
   }
 
@@ -64,6 +66,7 @@ async function metadataSearch({ filters, limit }) {
     .limit(Math.max(limit * 3, 10))
     .toArray();
 
+  debugLog("fullSearch.metadata.results", { count: results.length });
   return results.map((doc) => ({ ...normalizeDoc(doc), score: 0.5 }));
 }
 
@@ -92,6 +95,7 @@ function buildKeywordQuery(keywords) {
 async function keywordSearch({ keywords, limit }) {
   const query = buildKeywordQuery(keywords);
   if (!query) {
+    debugLog("fullSearch.keyword.skip.noQuery");
     return [];
   }
 
@@ -103,6 +107,7 @@ async function keywordSearch({ keywords, limit }) {
     .limit(Math.max(limit * 4, 12))
     .toArray();
 
+  debugLog("fullSearch.keyword.results", { count: results.length });
   return results.map((doc) => ({ ...normalizeDoc(doc), score: 1 }));
 }
 
@@ -174,6 +179,12 @@ function rerankResults(items, limit) {
 
 async function fullSearch({ semanticQuery, keywords, filters, limit }) {
   const safeLimit = limit ?? 5;
+  debugLog("fullSearch.start", {
+    safeLimit,
+    semanticQueryLength: semanticQuery?.length ?? 0,
+    keywordCount: keywords?.length ?? 0,
+    filterKeys: filters ? Object.keys(filters) : [],
+  });
 
   const [metadataResults, keywordResults, semanticResults] =
     await Promise.all([
@@ -181,6 +192,11 @@ async function fullSearch({ semanticQuery, keywords, filters, limit }) {
       keywordSearch({ keywords, limit: safeLimit }),
       vectorSearch(semanticQuery, Math.max(safeLimit * 2, 8)),
     ]);
+  debugLog("fullSearch.parallel.results", {
+    metadataCount: metadataResults.length,
+    keywordCount: keywordResults.length,
+    semanticCount: semanticResults.length,
+  });
 
   const merged = mergeResults({
     metadataResults,
@@ -188,6 +204,10 @@ async function fullSearch({ semanticQuery, keywords, filters, limit }) {
     semanticResults,
   });
   const ranked = rerankResults(merged, safeLimit);
+  debugLog("fullSearch.rerank.done", {
+    mergedCount: merged.length,
+    rankedCount: ranked.length,
+  });
 
   return {
     type: "full_search",
