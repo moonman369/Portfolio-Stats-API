@@ -1,6 +1,6 @@
 const axios = require("axios");
 const { getStats } = require("../../../mongo");
-const { vectorSearch } = require("./vectorSearch");
+const { fullSearch } = require("./fullSearch");
 
 async function fetchGithubStats() {
   const stats = await getStats();
@@ -66,20 +66,20 @@ async function fetchLeetcodeStats(username) {
   return { type: "leetcode_stats", items: [payload], missing: false };
 }
 
-async function fetchPortfolioDocs(query, limit) {
-  const docs = await vectorSearch(query, limit ?? 5);
-  return { type: "portfolio_docs", items: docs, missing: docs.length === 0 };
-}
-
 async function retrieve(intentReport) {
-  if (intentReport.intent === "github_stats") {
+  if (intentReport.execution.retrieval === "github_stats") {
     return fetchGithubStats();
   }
-  if (intentReport.intent === "leetcode_stats") {
+  if (intentReport.execution.retrieval === "leetcode_stats") {
     return fetchLeetcodeStats(intentReport.entities.leetcodeUsername);
   }
-  if (intentReport.intent === "portfolio_docs") {
-    return fetchPortfolioDocs(intentReport.query, intentReport.constraints.limit);
+  if (intentReport.execution.retrieval === "full_search") {
+    return fullSearch({
+      semanticQuery: intentReport.semanticQuery,
+      keywords: intentReport.keywords,
+      filters: intentReport.filters,
+      limit: intentReport.constraints.limit,
+    });
   }
 
   return { type: "none", items: [], missing: false };

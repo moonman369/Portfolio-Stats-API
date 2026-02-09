@@ -5,8 +5,11 @@ const { validateScope } = require("./gate/scopeValidator");
 const { buildExecutionPlan } = require("./planning/planBuilder");
 const { retrieve } = require("./retrieval/retrievalEngine");
 const { rankResults } = require("./ranking/rankingEngine");
-const { decideResponseMode } = require("./response/responseMode");
-const { composeGroundedResponse } = require("./response/responseComposer");
+const {
+  composeGreeting,
+  composeFactual,
+  composeGroundedResponse,
+} = require("./response/responseComposer");
 const { MoonMindError } = require("./utils/errors");
 
 async function runMoonMind({ prompt, sessionId, metadata }) {
@@ -24,57 +27,92 @@ async function runMoonMind({ prompt, sessionId, metadata }) {
   }
 
   const scope = validateScope(intentReport);
+  const plan = buildExecutionPlan(intentReport);
+
   if (!scope.allowed) {
     return {
       status: "rejected",
       reason: scope.reason,
-      intentReport,
-    };
-  }
-
-  const plan = buildExecutionPlan(intentReport);
-
-  if (intentReport.intent === "capabilities") {
-    return {
-      status: "success",
-      mode: "raw",
+      mode: "denial",
       intentReport,
       plan,
-      data: {
-        supportedIntents: [
-          "github_stats",
-          "leetcode_stats",
-          "portfolio_docs",
-        ],
-        responseModes: ["raw", "grounded"],
-      },
+      message: intentReport.message || "Unable to assist with that request.",
     };
   }
+
+  if (intentReport.execution.responseStyle === "greeting") {
+    const message = await composeGreeting(prompt);
+    return {
+      status: "success",
+      mode: "greeting",
+      intentReport,
+      plan,
+      message,
+    };
+  }
+
+  if (intentReport.execution.responseStyle === "factual") {
+    const message = await composeFactual(prompt);
+    return {
+      status: "success",
+      mode: "factual",
+      intentReport,
+      plan,
+      message,
+    };
+  }
+
+  if (intentReport.execution.responseStyle === "denial") {
+    return {
+      status: "rejected",
+      mode: "denial",
+      intentReport,
+      plan,
+      message: intentReport.message,
+    };
+  }
+
   const retrievalResult = await retrieve(intentReport);
   const ranked = rankResults(retrievalResult);
-  const responseMode = decideResponseMode(intentReport, ranked);
 
-  if (responseMode === "raw") {
-    return {
-      status: "success",
-      mode: "raw",
-      intentReport,
-      plan,
-      data: ranked.items,
-    };
-  }
-
-  if (responseMode === "unknown") {
+  if (ranked?.missing) {
     return {
       status: "unknown",
       mode: "unknown",
       intentReport,
       plan,
       message: "unknown",
+      data: intentReport.execution.responseStyle === "documents" ? [] : undefined,
     };
   }
 
-  const responseText = await composeGroundedResponse(intentReport, ranked);
+  const responseText = await composeGroundedResponse(
+    intentReport,
+    ranked,
+    intentReport.execution.responseStyle,
+  );
+
+  if (intentReport.execution.responseStyle === "documents") {
+    return {
+      status: "success",
+      mode: "documents",
+      intentReport,
+      plan,
+      message: responseText,
+      data: ranked.items,
+    };
+  }
+
+  if (intentReport.execution.responseStyle === "summary") {
+    return {
+      status: "success",
+      mode: "summary",
+      intentReport,
+      plan,
+      message: responseText,
+      data: ranked.items,
+    };
+  }
 
   return {
     status: "success",
