@@ -5,17 +5,20 @@ function buildExecutionPlan(intentReport) {
   plan.push({ step: "intent", action: "validate_intent" });
   plan.push({ step: "scope", action: "scope_gate" });
 
-  if (intentReport.intent === "github_stats") {
+  if (intentReport.execution.retrieval === "github_stats") {
     plan.push({ step: "retrieve", action: "fetch_github_stats" });
-  } else if (intentReport.intent === "leetcode_stats") {
+  } else if (intentReport.execution.retrieval === "leetcode_stats") {
     plan.push({ step: "retrieve", action: "fetch_leetcode_stats" });
-  } else if (intentReport.intent === "portfolio_docs") {
-    plan.push({ step: "retrieve", action: "vector_search_docs" });
-  } else if (intentReport.intent === "capabilities") {
+  } else if (intentReport.execution.retrieval === "full_search") {
+    plan.push({ step: "retrieve", action: "metadata_search" });
+    plan.push({ step: "retrieve", action: "keyword_search" });
+    plan.push({ step: "retrieve", action: "semantic_search" });
+    plan.push({ step: "rank", action: "rerank" });
+    plan.push({ step: "select", action: "top_n" });
+  } else {
     plan.push({ step: "retrieve", action: "none" });
   }
 
-  plan.push({ step: "rank", action: "mechanical_rank" });
   plan.push({ step: "respond", action: "compose_response" });
 
   return plan;

@@ -1,4 +1,4 @@
-const INTENT_REPORT_VERSION = "1.0";
+const INTENT_REPORT_VERSION = "2.0";
 
 const intentReportSchema = {
   type: "object",
@@ -6,12 +6,16 @@ const intentReportSchema = {
   required: [
     "version",
     "requestId",
-    "intent",
+    "intentCategory",
+    "intentSubtype",
     "query",
+    "semanticQuery",
+    "keywords",
+    "filters",
     "entities",
     "dataSources",
     "constraints",
-    "response",
+    "execution",
     "safety",
     "message",
     "confidence",
@@ -20,19 +24,48 @@ const intentReportSchema = {
     version: { type: "string", const: INTENT_REPORT_VERSION },
     requestId: { type: "string", minLength: 1 },
     sessionId: { type: ["string", "null"] },
-    intent: {
+    intentCategory: {
+      type: "string",
+      enum: ["greeting", "question", "action"],
+    },
+    intentSubtype: {
       type: "string",
       enum: [
-        "github_stats",
-        "leetcode_stats",
-        "portfolio_docs",
-        "capabilities",
-        "certifications",
-        "out_of_scope",
-        "unknown",
+        "general_greeting",
+        "factual",
+        "credentials",
+        "skills",
+        "experiences",
+        "strengths_weaknesses",
+        "stats_github",
+        "stats_leetcode",
+        "unsupported",
+        "fetch_documents",
+        "summarize_aspect",
       ],
     },
     query: { type: "string", minLength: 1 },
+    semanticQuery: { type: "string", minLength: 1 },
+    keywords: {
+      type: "array",
+      items: { type: "string" },
+    },
+    filters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["topics", "documentTypes", "timeRange"],
+      properties: {
+        topics: {
+          type: "array",
+          items: { type: "string" },
+        },
+        documentTypes: {
+          type: "array",
+          items: { type: "string" },
+        },
+        timeRange: { type: ["string", "null"] },
+      },
+    },
     entities: {
       type: "object",
       additionalProperties: false,
@@ -66,13 +99,20 @@ const intentReportSchema = {
       },
       required: ["timeRange", "limit", "fields"],
     },
-    response: {
+    execution: {
       type: "object",
       additionalProperties: false,
-      required: ["mode", "format"],
+      required: ["retrieval", "responseStyle", "allowLLM"],
       properties: {
-        mode: { type: "string", enum: ["raw", "grounded", "unknown"] },
-        format: { type: "string", enum: ["json", "text"] },
+        retrieval: {
+          type: "string",
+          enum: ["none", "full_search", "github_stats", "leetcode_stats"],
+        },
+        responseStyle: {
+          type: "string",
+          enum: ["greeting", "factual", "grounded", "denial", "documents", "summary"],
+        },
+        allowLLM: { type: "boolean" },
       },
     },
     safety: {
@@ -87,7 +127,7 @@ const intentReportSchema = {
         },
       },
     },
-    message: { type: "string", maxLength: 160 },
+    message: { type: "string", maxLength: 240 },
     confidence: { type: "number", minimum: 0, maximum: 1 },
   },
 };
