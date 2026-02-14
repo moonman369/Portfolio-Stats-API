@@ -1,7 +1,10 @@
 const express = require("express");
 const { debugLog } = require("../moonmind/utils/debug");
+const moonmindMemoryRoutes = require("../../routes/moonmindMemoryRoutes");
 
 const router = express.Router();
+
+router.use(moonmindMemoryRoutes);
 
 router.post("/chat", (req, res) => {
   debugLog("moonmind.route.request.received", {
