@@ -63,9 +63,9 @@ function buildGroundedPrompt(intentReport, retrievalResult, style) {
       role: "user",
       content: JSON.stringify(
         {
-          intentCategory: intentReport.intentCategory,
-          intentSubtype: intentReport.intentSubtype,
-          query: intentReport.query,
+          primary_intent: intentReport.primary_intent,
+          subtype: intentReport.subtype,
+          domains: intentReport.domains,
           data: retrievalResult.items,
         },
         null,
@@ -118,7 +118,7 @@ async function composeGroundedResponse(intentReport, retrievalResult, style) {
     model: RESPONSE_MODEL,
     style,
     itemCount: retrievalResult?.items?.length ?? 0,
-    intentSubtype: intentReport?.intentSubtype,
+    subtype: intentReport?.subtype,
   });
   const messages = buildGroundedPrompt(intentReport, retrievalResult, style);
   const completion = await createChatCompletion({
