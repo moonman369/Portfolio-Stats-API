@@ -1,6 +1,9 @@
 const crypto = require("crypto");
 const { extractIntent } = require("./intent/intentExtractor");
-const { assertValidIntentReport } = require("./intent/intentValidator");
+const {
+  assertValidIntentReport,
+  getExecutionDirective,
+} = require("./intent/intentValidator");
 const { validateScope } = require("./gate/scopeValidator");
 const { buildExecutionPlan } = require("./planning/planBuilder");
 const { retrieve } = require("./retrieval/retrievalEngine");
@@ -15,172 +18,102 @@ const { debugLog, serializeError } = require("./utils/debug");
 
 async function runMoonMind({ prompt, sessionId, metadata }) {
   const requestId = crypto.randomUUID();
-  debugLog("runMoonMind.start", {
-    requestId,
-    sessionId: sessionId ?? null,
-    hasPrompt: typeof prompt === "string",
-    metadataKeys: metadata ? Object.keys(metadata) : [],
-  });
 
   try {
     if (!prompt || typeof prompt !== "string") {
       throw new MoonMindError("Prompt is required", { code: "INVALID_INPUT" });
     }
 
-    debugLog("runMoonMind.extractIntent.start", { requestId });
-    const intentReport = await extractIntent({ prompt, requestId, sessionId });
-    debugLog("runMoonMind.extractIntent.success", {
-      requestId,
-      intentCategory: intentReport.intentCategory,
-      intentSubtype: intentReport.intentSubtype,
-      retrieval: intentReport.execution?.retrieval,
-      responseStyle: intentReport.execution?.responseStyle,
-    });
-
-    debugLog("runMoonMind.intentValidation.start", { requestId });
-    assertValidIntentReport(intentReport);
-    debugLog("runMoonMind.intentValidation.success", { requestId });
-
-    if (metadata?.leetcodeUsername && !intentReport.entities.leetcodeUsername) {
-      intentReport.entities.leetcodeUsername = metadata.leetcodeUsername;
-      debugLog("runMoonMind.entities.enriched", {
-        requestId,
-        field: "entities.leetcodeUsername",
-      });
-    }
-
+    const intentReport = assertValidIntentReport(
+      await extractIntent({ prompt, requestId, sessionId }),
+    );
+    const directive = getExecutionDirective(intentReport);
     const scope = validateScope(intentReport);
-    debugLog("runMoonMind.scope.result", {
-      requestId,
-      allowed: scope.allowed,
-      reason: scope.reason ?? null,
-    });
-
-    const plan = buildExecutionPlan(intentReport);
-    debugLog("runMoonMind.plan.built", {
-      requestId,
-      steps: Array.isArray(plan) ? plan.length : 0,
-    });
+    const plan = buildExecutionPlan(intentReport, directive);
 
     if (!scope.allowed) {
-      debugLog("runMoonMind.exit.scopeRejected", { requestId });
       return {
         status: "rejected",
-        reason: scope.reason,
-        mode: "denial",
+        mode: "redirect",
         intentReport,
         plan,
-        message: intentReport.message || "Unable to assist with that request.",
+        message: scope.message,
       };
     }
 
-    if (intentReport.execution.responseStyle === "greeting") {
-      debugLog("runMoonMind.composeGreeting.start", { requestId });
+    if (!intentReport.logical_validity.is_consistent) {
+      return {
+        status: "rejected",
+        mode: "conflict",
+        intentReport,
+        plan,
+        message: `Request has conflicting constraints: ${intentReport.logical_validity.conflicts.join(
+          "; ",
+        )}`,
+      };
+    }
+
+    if (intentReport.modifiers.is_ambiguous) {
+      return {
+        status: "needs_clarification",
+        mode: "clarification",
+        intentReport,
+        plan,
+        message: intentReport.clarification_question,
+      };
+    }
+
+    if (directive.mode === "greeting") {
       const message = await composeGreeting(prompt);
-      debugLog("runMoonMind.composeGreeting.success", { requestId });
-      return {
-        status: "success",
-        mode: "greeting",
-        intentReport,
-        plan,
-        message,
-      };
+      return { status: "success", mode: "greeting", intentReport, plan, message };
     }
 
-    if (intentReport.execution.responseStyle === "factual") {
-      debugLog("runMoonMind.composeFactual.start", { requestId });
+    if (directive.mode === "factual") {
       const message = await composeFactual(prompt);
-      debugLog("runMoonMind.composeFactual.success", { requestId });
-      return {
-        status: "success",
-        mode: "factual",
-        intentReport,
-        plan,
-        message,
-      };
+      return { status: "success", mode: "factual", intentReport, plan, message };
     }
 
-    if (intentReport.execution.responseStyle === "denial") {
-      debugLog("runMoonMind.exit.denial", { requestId });
+    if (directive.mode === "unsupported") {
       return {
         status: "rejected",
-        mode: "denial",
+        mode: "unsupported",
         intentReport,
         plan,
-        message: intentReport.message,
+        message:
+          intentReport.polite_redirect_message ||
+          "I can help with portfolio, software development, science, technology, GitHub stats, or LeetCode stats.",
       };
     }
 
-    debugLog("runMoonMind.retrieve.start", {
-      requestId,
-      retrieval: intentReport.execution.retrieval,
-    });
-    const retrievalResult = await retrieve(intentReport);
-    debugLog("runMoonMind.retrieve.success", {
-      requestId,
-      retrievalType: retrievalResult?.type,
-      count: retrievalResult?.items?.length ?? 0,
-      missing: Boolean(retrievalResult?.missing),
-    });
-
+    const retrievalResult = await retrieve(intentReport, directive, metadata);
     const ranked = rankResults(retrievalResult);
-    debugLog("runMoonMind.rank.success", {
-      requestId,
-      count: ranked?.items?.length ?? 0,
-      missing: Boolean(ranked?.missing),
-    });
 
     if (ranked?.missing) {
-      debugLog("runMoonMind.exit.unknown", { requestId });
       return {
         status: "unknown",
         mode: "unknown",
         intentReport,
         plan,
         message: "unknown",
-        data: intentReport.execution.responseStyle === "documents" ? [] : undefined,
       };
     }
 
-    debugLog("runMoonMind.composeGrounded.start", {
-      requestId,
-      style: intentReport.execution.responseStyle,
-    });
-    const responseText = await composeGroundedResponse(
-      intentReport,
-      ranked,
-      intentReport.execution.responseStyle,
-    );
-    debugLog("runMoonMind.composeGrounded.success", { requestId });
-
-    if (intentReport.execution.responseStyle === "documents") {
-      return {
-        status: "success",
-        mode: "documents",
-        intentReport,
-        plan,
-        message: responseText,
-        data: ranked.items,
-      };
-    }
-
-    if (intentReport.execution.responseStyle === "summary") {
-      return {
-        status: "success",
-        mode: "summary",
-        intentReport,
-        plan,
-        message: responseText,
-        data: ranked.items,
-      };
-    }
+    const intro = intentReport.modifiers.has_greeting_prefix ? "Great question. " : "";
+    const style =
+      directive.mode === "fetch_documents"
+        ? "documents"
+        : directive.mode === "summarize_aspect"
+          ? "summary"
+          : "grounded";
+    const responseText = await composeGroundedResponse(intentReport, ranked, style);
 
     return {
       status: "success",
-      mode: "grounded",
+      mode: directive.mode,
       intentReport,
       plan,
-      message: responseText,
+      message: `${intro}${responseText}`.trim(),
+      data: ranked.items,
     };
   } catch (error) {
     debugLog("runMoonMind.error", {

@@ -10,14 +10,12 @@ async function fetchGithubStats() {
     debugLog("retrieval.github.missing");
     return { type: "github_stats", items: [], missing: true };
   }
-  debugLog("retrieval.github.success");
   return { type: "github_stats", items: [stats], missing: false };
 }
 
 async function fetchLeetcodeStats(username) {
   debugLog("retrieval.leetcode.start", { username: username ?? null });
   if (!username) {
-    debugLog("retrieval.leetcode.missing_username");
     return { type: "leetcode_stats", items: [], missing: true };
   }
 
@@ -60,12 +58,7 @@ async function fetchLeetcodeStats(username) {
 
   const data = response.data?.data;
   const ranking = rankingResponse.data?.data;
-
   if (!data?.matchedUser || !ranking?.matchedUser) {
-    debugLog("retrieval.leetcode.missing_data", {
-      hasData: Boolean(data?.matchedUser),
-      hasRanking: Boolean(ranking?.matchedUser),
-    });
     return { type: "leetcode_stats", items: [], missing: true };
   }
 
@@ -82,37 +75,27 @@ async function fetchLeetcodeStats(username) {
     ranking: ranking.matchedUser.profile.ranking,
   };
 
-  debugLog("retrieval.leetcode.success");
   return { type: "leetcode_stats", items: [payload], missing: false };
 }
 
-async function retrieve(intentReport) {
-  debugLog("retrieval.dispatch.start", {
-    retrieval: intentReport.execution.retrieval,
-    subtype: intentReport.intentSubtype,
-  });
-
-  if (intentReport.execution.retrieval === "github_stats") {
+async function retrieve(intentReport, directive, metadata = {}) {
+  if (directive.retrieval === "github_stats") {
     return fetchGithubStats();
   }
-  if (intentReport.execution.retrieval === "leetcode_stats") {
-    return fetchLeetcodeStats(intentReport.entities.leetcodeUsername);
+
+  if (directive.retrieval === "leetcode_stats") {
+    return fetchLeetcodeStats(metadata.leetcodeUsername || metadata.username || null);
   }
-  if (intentReport.execution.retrieval === "full_search") {
-    debugLog("retrieval.full_search.start", {
-      queryLength: intentReport.semanticQuery?.length ?? 0,
-      keywordCount: intentReport.keywords?.length ?? 0,
-      limit: intentReport.constraints.limit,
-    });
+
+  if (directive.retrieval === "full_search") {
     return fullSearch({
-      semanticQuery: intentReport.semanticQuery,
-      keywords: intentReport.keywords,
+      semanticQuery: intentReport.filters.keyword_filters.join(" "),
       filters: intentReport.filters,
-      limit: intentReport.constraints.limit,
+      booleanLogic: intentReport.boolean_logic,
+      limit: 8,
     });
   }
 
-  debugLog("retrieval.none");
   return { type: "none", items: [], missing: false };
 }
 
