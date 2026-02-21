@@ -7,10 +7,9 @@ async function fetchGithubStats() {
   debugLog("retrieval.github.start");
   const stats = await getStats();
   if (!stats?.stats) {
-    debugLog("retrieval.github.missing");
     return { type: "github_stats", items: [], missing: true };
   }
-  return { type: "github_stats", items: [stats], missing: false };
+  return { type: "github_stats", items: [stats.stats], missing: false };
 }
 
 async function fetchLeetcodeStats(username) {
@@ -50,11 +49,6 @@ async function fetchLeetcodeStats(username) {
       }),
     ]);
   } catch (error) {
-    console.error("retrieval.leetcode.request.error", {
-      username,
-      message: error?.message,
-      stack: error?.stack,
-    });
     debugLog("retrieval.leetcode.request.error", {
       error: serializeError(error),
     });
@@ -68,7 +62,6 @@ async function fetchLeetcodeStats(username) {
   }
 
   const payload = {
-    status: "success",
     totalSolved: data.matchedUser.submitStats.acSubmissionNum[0].count,
     totalQuestions: data.allQuestionsCount[0].count,
     easySolved: data.matchedUser.submitStats.acSubmissionNum[1].count,
@@ -83,7 +76,7 @@ async function fetchLeetcodeStats(username) {
   return { type: "leetcode_stats", items: [payload], missing: false };
 }
 
-async function retrieve(intentReport, directive, metadata = {}) {
+async function retrieve(intentReport, directive, metadata = {}, prompt = "") {
   if (directive.retrieval === "github_stats") {
     return fetchGithubStats();
   }
@@ -94,10 +87,12 @@ async function retrieve(intentReport, directive, metadata = {}) {
 
   if (directive.retrieval === "full_search") {
     return fullSearch({
-      semanticQuery: intentReport.filters.keyword_filters.join(" "),
+      semanticQuery: prompt,
       filters: intentReport.filters,
       booleanLogic: intentReport.boolean_logic,
-      limit: 8,
+      domains: intentReport.domains,
+      runtimeMetadata: metadata,
+      limit: 5,
     });
   }
 
