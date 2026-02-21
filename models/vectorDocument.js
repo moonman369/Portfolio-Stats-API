@@ -18,6 +18,7 @@ const vectorDocumentJsonSchema = {
     "updated_at",
   ],
   properties: {
+    _id: { bsonType: "objectId" },
     id: { bsonType: "string" },
     title: { bsonType: "string" },
     category: { enum: VECTOR_CONFIG.ALLOWED_CATEGORIES },
@@ -61,7 +62,7 @@ const vectorDocumentJsonSchema = {
     },
     embedding: {
       bsonType: "array",
-      items: { bsonType: "double" },
+      items: { bsonType: ["double", "int", "long", "decimal"] },
     },
     created_at: { bsonType: "string" },
     updated_at: { bsonType: "string" },

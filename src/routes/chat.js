@@ -7,7 +7,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /chat:
+ * /api/v1/chat:
  *   post:
  *     summary: MoonMind intent-driven chat
  *     requestBody:
@@ -54,7 +54,10 @@ router.post("/", async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     const serializedError = serializeError(error);
-    console.error(error);
+    console.error("chat.route.runMoonMind.error", {
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("chat.route.runMoonMind.error", serializedError);
 
     if (error instanceof MoonMindError) {

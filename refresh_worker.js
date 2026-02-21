@@ -116,7 +116,10 @@ const refreshStats = async (params) => {
       totalPulls,
     };
   } catch (error) {
-    console.log(error);
+    console.error("refresh.worker.error", {
+      message: error?.message,
+      stack: error?.stack,
+    });
     console.log(
       `\n\n\n\n\n\n    END OF REFRESH JOB\n    {\n        "status": "error",\n        "message": ${error},\n        "elapsed": ${Date.now() - start}\n      }\n    `,
     );

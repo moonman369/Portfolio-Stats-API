@@ -63,6 +63,10 @@ async function vectorSearch(query, limit = 5) {
     debugLog("vectorSearch.success", { count: results.length });
     return results;
   } catch (error) {
+    console.error("vectorSearch.error", {
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("vectorSearch.error", { error: serializeError(error) });
     throw error;
   }

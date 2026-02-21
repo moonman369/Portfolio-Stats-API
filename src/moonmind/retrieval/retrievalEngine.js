@@ -50,6 +50,11 @@ async function fetchLeetcodeStats(username) {
       }),
     ]);
   } catch (error) {
+    console.error("retrieval.leetcode.request.error", {
+      username,
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("retrieval.leetcode.request.error", {
       error: serializeError(error),
     });

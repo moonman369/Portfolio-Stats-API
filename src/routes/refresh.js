@@ -57,7 +57,10 @@ router.get("/", async (req, resp) => {
       resp.status(response.status).json({ message: `${response.statusText}` });
     }
   } catch (error) {
-    console.log(error);
+    console.error("refresh.route.error", {
+      message: error?.message,
+      stack: error?.stack,
+    });
     resp.status(500).json({ message: error.message });
   }
 });

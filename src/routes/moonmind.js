@@ -34,6 +34,10 @@ router.post("/chat", (req, res) => {
       message: "MoonMind endpoint scaffolded",
     });
   } catch (error) {
+    console.error("moonmind.route.error", {
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("moonmind.route.error", {
       name: error?.name,
       message: error?.message,

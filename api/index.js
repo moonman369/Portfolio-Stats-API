@@ -37,7 +37,7 @@ app.use("/api/v1/leetcode", leetcodeRouter);
 app.use("/api/v1/github", githubRouter);
 app.use("/api/v1/refresh", refreshRouter);
 app.use("/api/v1/chat", chatRouter);
-app.use("/api/moonmind", moonmindRouter);
+app.use("/api/v1/moonmind", moonmindRouter);
 
 app.listen(port, async () => {
   await connectToDatabase();

@@ -117,6 +117,12 @@ async function extractIntent({ prompt, requestId, sessionId }) {
   try {
     return JSON.parse(content);
   } catch (error) {
+    console.error("extractIntent.parse.error", {
+      requestId,
+      message: error?.message,
+      stack: error?.stack,
+      contentPreview: content.slice(0, 200),
+    });
     debugLog("extractIntent.parse.error", {
       requestId,
       error: serializeError(error),

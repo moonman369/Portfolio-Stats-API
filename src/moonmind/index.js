@@ -116,6 +116,11 @@ async function runMoonMind({ prompt, sessionId, metadata }) {
       data: ranked.items,
     };
   } catch (error) {
+    console.error("runMoonMind.error", {
+      requestId,
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("runMoonMind.error", {
       requestId,
       error: serializeError(error),

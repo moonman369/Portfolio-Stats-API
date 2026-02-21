@@ -32,12 +32,27 @@ async function ensureStorage() {
       validationAction: "error",
     });
   } else {
-    await db.command({
-      collMod: VECTOR_CONFIG.DOCUMENT_COLLECTION,
-      validator: { $jsonSchema: vectorDocumentJsonSchema },
-      validationLevel: "strict",
-      validationAction: "error",
-    });
+    try {
+      await db.command({
+        collMod: VECTOR_CONFIG.DOCUMENT_COLLECTION,
+        validator: { $jsonSchema: vectorDocumentJsonSchema },
+        validationLevel: "strict",
+        validationAction: "error",
+      });
+    } catch (error) {
+      const isUnauthorized =
+        error?.code === 13 ||
+        error?.codeName === "Unauthorized" ||
+        /not allowed to do action \[collMod\]/i.test(error?.message || "");
+
+      if (!isUnauthorized) {
+        throw error;
+      }
+      console.error("vectorMemory.ensureStorage.collMod.unauthorized", {
+        collection: VECTOR_CONFIG.DOCUMENT_COLLECTION,
+        message: error?.message,
+      });
+    }
   }
 
   await db.collection(VECTOR_CONFIG.DOCUMENT_COLLECTION).createIndex({ id: 1 }, { unique: true });

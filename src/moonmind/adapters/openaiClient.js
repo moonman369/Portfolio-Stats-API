@@ -35,6 +35,11 @@ async function requestOpenAI(path, body) {
     });
     return response.json();
   } catch (error) {
+    console.error("openai.request.error", {
+      path,
+      message: error?.message,
+      stack: error?.stack,
+    });
     debugLog("openai.request.error", {
       path,
       error: serializeError(error),
