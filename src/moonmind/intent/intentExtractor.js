@@ -1,7 +1,70 @@
 const { createChatCompletion } = require("../adapters/openaiClient");
 const { debugLog, serializeError } = require("../utils/debug");
+const { DOMAIN_ENUM } = require("./intentReportSchema");
 
 const INTENT_MODEL = process.env.MOONMIND_INTENT_MODEL || "gpt-4o-mini";
+
+const SUMMARY_INDICATOR_PATTERN =
+  /\b(?:summari[sz]e|overview|tell me about|describe|recap|outline|give me a summary)\b/i;
+const DOMAIN_PATTERNS = [
+  { pattern: /\bskills?\b/i, domain: "skills" },
+  { pattern: /\bexperiences?\b/i, domain: "experience" },
+  { pattern: /\bcredentials?\b/i, domain: "credentials" },
+  { pattern: /\bcertifications?\b/i, domain: "certifications" },
+  { pattern: /\bresume\b/i, domain: "resume" },
+  { pattern: /\bprojects?\b/i, domain: "projects" },
+  { pattern: /\bwork\b/i, domain: "experience" },
+  { pattern: /\bbackground\b/i, domain: "experience" },
+  { pattern: /\bstrengths?\b/i, domain: "skills" },
+];
+
+function inferPortfolioSummaryDomains(prompt = "") {
+  const domains = DOMAIN_PATTERNS.filter(({ pattern }) => pattern.test(prompt)).map(
+    ({ domain }) => domain,
+  );
+  return [...new Set(domains)].filter((domain) => DOMAIN_ENUM.includes(domain));
+}
+
+function isBroadPortfolioSummarizationRequest(prompt = "") {
+  if (!SUMMARY_INDICATOR_PATTERN.test(prompt)) {
+    return false;
+  }
+  return inferPortfolioSummaryDomains(prompt).length > 0;
+}
+
+function normalizeBroadPortfolioSummarization(report, prompt = "") {
+  if (!report || typeof report !== "object") {
+    return report;
+  }
+
+  if (!isBroadPortfolioSummarizationRequest(prompt)) {
+    return report;
+  }
+
+  const domains = inferPortfolioSummaryDomains(prompt);
+  if (domains.length === 0) {
+    return report;
+  }
+
+  return {
+    ...report,
+    primary_intent: "action",
+    subtype: "summarize_aspect",
+    confidence: Math.max(0.7, Number(report.confidence) || 0),
+    is_in_scope: true,
+    out_of_scope_reason: null,
+    polite_redirect_message: null,
+    clarification_question: null,
+    domains,
+    modifiers: {
+      ...report.modifiers,
+      requires_portfolio_grounding: true,
+      requires_aggregation: true,
+      is_ambiguous: false,
+      is_multi_domain: domains.length > 1,
+    },
+  };
+}
 
 function buildIntentPrompt({ prompt }) {
   return [
@@ -13,6 +76,7 @@ function buildIntentPrompt({ prompt }) {
         "No markdown, no prose, no extra keys.",
         "Exactly one primary_intent is required: greeting, question, action, chat.",
         "Enforce scope validation, ambiguity detection, and logical validity.",
+        "Broad portfolio summarization requests (summarize/overview/tell me about/describe/recap/outline/give me a summary + portfolio domains) are always in-scope action.summarize_aspect, not unsupported or ambiguous.",
         "If out of scope, is_in_scope=false and provide out_of_scope_reason and polite_redirect_message.",
         "If confidence < 0.6, set modifiers.is_ambiguous=true and provide clarification_question.",
         "If logical contradictions exist, set logical_validity.is_consistent=false and list conflicts.",
@@ -115,7 +179,8 @@ async function extractIntent({ prompt, requestId, sessionId }) {
   }
 
   try {
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return normalizeBroadPortfolioSummarization(parsed, prompt);
   } catch (error) {
     console.error("extractIntent.parse.error", {
       requestId,
@@ -134,4 +199,7 @@ async function extractIntent({ prompt, requestId, sessionId }) {
 
 module.exports = {
   extractIntent,
+  normalizeBroadPortfolioSummarization,
+  isBroadPortfolioSummarizationRequest,
+  inferPortfolioSummaryDomains,
 };
