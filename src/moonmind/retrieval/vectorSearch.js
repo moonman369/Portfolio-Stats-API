@@ -51,8 +51,11 @@ async function vectorSearch(query, limit = 5) {
       },
       {
         $project: {
-          _id: 1,
-          content: 1,
+          _id: 0,
+          id: 1,
+          title: 1,
+          category: 1,
+          summary_for_embedding: 1,
           metadata: 1,
           score: { $meta: "vectorSearchScore" },
         },
@@ -72,30 +75,6 @@ async function vectorSearch(query, limit = 5) {
   }
 }
 
-const vectorQueryExample = {
-  collection: VECTOR_COLLECTION,
-  pipeline: [
-    {
-      $vectorSearch: {
-        index: VECTOR_INDEX,
-        queryVector: "<embedding-array>",
-        path: VECTOR_FIELD,
-        numCandidates: 50,
-        limit: 5,
-      },
-    },
-    {
-      $project: {
-        _id: 1,
-        content: 1,
-        metadata: 1,
-        score: { $meta: "vectorSearchScore" },
-      },
-    },
-  ],
-};
-
 module.exports = {
   vectorSearch,
-  vectorQueryExample,
 };
