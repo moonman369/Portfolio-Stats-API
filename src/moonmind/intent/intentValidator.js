@@ -171,7 +171,7 @@ function assertValidIntentReport(report) {
     });
   }
 
-  if (report.confidence < 0.6) {
+  if (report.confidence < 0.5 && report.domains.length === 0) {
     if (!report.modifiers.is_ambiguous || !report.clarification_question) {
       throw new MoonMindError("Ambiguous reports must include clarification question", {
         field: "clarification_question",

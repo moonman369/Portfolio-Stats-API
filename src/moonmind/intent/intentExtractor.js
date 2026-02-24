@@ -6,6 +6,8 @@ const INTENT_MODEL = process.env.MOONMIND_INTENT_MODEL || "gpt-4o-mini";
 
 const SUMMARY_INDICATOR_PATTERN =
   /\b(?:summari[sz]e|overview|tell me about|describe|recap|outline|give me a summary)\b/i;
+const DETERMINISTIC_OUT_OF_SCOPE_PATTERN =
+  /\b(?:politics?|religion|api\s*key|secret|system instructions|financial advice|health advice)\b/i;
 const DOMAIN_PATTERNS = [
   { pattern: /\bskills?\b/i, domain: "skills" },
   { pattern: /\bexperiences?\b/i, domain: "experience" },
@@ -16,7 +18,86 @@ const DOMAIN_PATTERNS = [
   { pattern: /\bwork\b/i, domain: "experience" },
   { pattern: /\bbackground\b/i, domain: "experience" },
   { pattern: /\bstrengths?\b/i, domain: "skills" },
+  { pattern: /\btechnolog(?:y|ies)\b/i, domain: "skills" },
+  { pattern: /\btech stack\b/i, domain: "skills" },
+  { pattern: /\bbackend\b/i, domain: "skills" },
+  { pattern: /\bfrontend\b/i, domain: "skills" },
+  { pattern: /\bcloud\b/i, domain: "certifications" },
+  { pattern: /\bAI\b/i, domain: "projects" },
+  { pattern: /\bgithub\b/i, domain: "github stats" },
+  { pattern: /\bleetcode\b/i, domain: "leetcode stats" },
 ];
+
+function buildDeterministicOutOfScopeReport() {
+  return {
+    primary_intent: "question",
+    subtype: "unsupported",
+    confidence: 1,
+    modifiers: {
+      has_greeting_prefix: false,
+      requires_portfolio_grounding: false,
+      requires_conceptual_explanation: false,
+      is_comparison: false,
+      is_multi_domain: false,
+      requires_aggregation: false,
+      is_time_filtered: false,
+      is_ambiguous: false,
+      logical_conflict_detected: false,
+    },
+    is_in_scope: false,
+    out_of_scope_reason: "Topic is outside allowed domains",
+    polite_redirect_message:
+      "I can only answer questions about portfolio, skills, projects, certifications, resume, science, or technology.",
+    clarification_question: null,
+    domains: [],
+    filters: {
+      metadata_filters: [],
+      keyword_filters: [],
+      exclusions: [],
+    },
+    boolean_logic: {
+      operator: null,
+      negations: [],
+    },
+    aggregation: {
+      type: "none",
+      group_by_field: null,
+      sort: {
+        field: null,
+        order: null,
+      },
+    },
+    logical_validity: {
+      is_consistent: true,
+      conflicts: [],
+    },
+  };
+}
+
+function recoverUnsupportedQuestionReport(report) {
+  if (!report || typeof report !== "object") {
+    return report;
+  }
+
+  if (
+    report.primary_intent === "question" &&
+    report.subtype === "unsupported" &&
+    Array.isArray(report.domains) &&
+    report.domains.length > 0
+  ) {
+    return {
+      ...report,
+      subtype: "portfolio_grounded",
+      confidence: Math.max(Number(report.confidence) || 0, 0.6),
+      modifiers: {
+        ...report.modifiers,
+        requires_portfolio_grounding: true,
+      },
+    };
+  }
+
+  return report;
+}
 
 function inferPortfolioSummaryDomains(prompt = "") {
   const domains = DOMAIN_PATTERNS.filter(({ pattern }) =>
@@ -165,6 +246,10 @@ async function extractIntent({ prompt, requestId, sessionId }) {
     promptLength: typeof prompt === "string" ? prompt.length : 0,
   });
 
+  if (DETERMINISTIC_OUT_OF_SCOPE_PATTERN.test(prompt || "")) {
+    return buildDeterministicOutOfScopeReport();
+  }
+
   const messages = buildIntentPrompt({ prompt });
   const completion = await createChatCompletion({
     model: INTENT_MODEL,
@@ -180,7 +265,8 @@ async function extractIntent({ prompt, requestId, sessionId }) {
 
   try {
     const parsed = JSON.parse(content);
-    return normalizeBroadPortfolioSummarization(parsed, prompt);
+    const recovered = recoverUnsupportedQuestionReport(parsed);
+    return normalizeBroadPortfolioSummarization(recovered, prompt);
   } catch (error) {
     console.error("extractIntent.parse.error", {
       requestId,
@@ -202,4 +288,6 @@ module.exports = {
   normalizeBroadPortfolioSummarization,
   isBroadPortfolioSummarizationRequest,
   inferPortfolioSummaryDomains,
+  buildDeterministicOutOfScopeReport,
+  recoverUnsupportedQuestionReport,
 };
