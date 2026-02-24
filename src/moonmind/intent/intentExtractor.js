@@ -19,9 +19,9 @@ const DOMAIN_PATTERNS = [
 ];
 
 function inferPortfolioSummaryDomains(prompt = "") {
-  const domains = DOMAIN_PATTERNS.filter(({ pattern }) => pattern.test(prompt)).map(
-    ({ domain }) => domain,
-  );
+  const domains = DOMAIN_PATTERNS.filter(({ pattern }) =>
+    pattern.test(prompt),
+  ).map(({ domain }) => domain);
   return [...new Set(domains)].filter((domain) => DOMAIN_ENUM.includes(domain));
 }
 
