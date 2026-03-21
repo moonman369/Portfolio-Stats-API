@@ -1,57 +1,45 @@
 const express = require("express");
-const { debugLog } = require("../moonmind/utils/debug");
+const { runMoonMind } = require("../moonmind");
+const { MoonMindError } = require("../moonmind/utils/errors");
+const { debugLog, serializeError } = require("../moonmind/utils/debug");
 const moonmindMemoryRoutes = require("../../routes/moonmindMemoryRoutes");
 
 const router = express.Router();
 
 router.use(moonmindMemoryRoutes);
 
-router.post("/chat", (req, res) => {
-  debugLog("moonmind.route.request.received", {
+router.post("/chat", async (req, res) => {
+  debugLog("moonmind.route.request", {
     hasPrompt: typeof req.body?.prompt === "string",
+    sessionId: req.body?.sessionId ?? null,
   });
 
   try {
-    const prompt = req.body?.prompt;
+    const result = await runMoonMind({
+      prompt: req.body?.prompt,
+      sessionId: req.body?.sessionId,
+      metadata: req.body?.metadata,
+    });
 
-    if (typeof prompt !== "string" || prompt.trim().length === 0) {
-      const validationError = {
-        name: "ValidationError",
-        message: "prompt must be a non-empty string",
-      };
-      debugLog("moonmind.route.validation.error", validationError);
+    return res.status(200).json(result);
+  } catch (error) {
+    const serializedError = serializeError(error);
+    debugLog("moonmind.route.error", serializedError);
+
+    if (error instanceof MoonMindError) {
       return res.status(400).json({
         status: "error",
-        message: validationError.message,
-        details: { field: "prompt" },
-        error: validationError,
+        message: error.message,
+        details: error.details,
+        error: serializedError,
       });
     }
 
-    debugLog("moonmind.route.success");
-    return res.status(200).json({
-      status: "ok",
-      message: "MoonMind endpoint scaffolded",
-    });
-  } catch (error) {
-    console.error("moonmind.route.error", {
-      message: error?.message,
-      stack: error?.stack,
-    });
-    debugLog("moonmind.route.error", {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-    });
     return res.status(500).json({
       status: "error",
       message: "Server Error",
       details: error?.details ?? null,
-      error: {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-      },
+      error: serializedError,
     });
   }
 });
