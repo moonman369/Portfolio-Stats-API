@@ -80,7 +80,11 @@ router.get("/:username", async (req, resp) => {
 
     resp.status(200).json(obj);
   } catch (e) {
-    console.log(e);
+    console.error("leetcode.route.error", {
+      username: req.params?.username,
+      message: e?.message,
+      stack: e?.stack,
+    });
     resp.status(500).json({ status: "error", message: "Server Error" });
   }
 });

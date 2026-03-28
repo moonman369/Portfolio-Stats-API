@@ -22,6 +22,10 @@ router.get("/", async (req, resp) => {
     const stats = await getStats();
     resp.status(200).json(stats);
   } catch (e) {
+    console.error("github.route.error", {
+      message: e?.message,
+      stack: e?.stack,
+    });
     resp.status(500).json({ status: "error", message: "Server Error" });
   }
 });

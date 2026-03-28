@@ -7,7 +7,7 @@
     "dev": "nodemon api/index.js",
     "start": "node api/index.js",
     "build": "node api/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +19,11 @@
     "express": "^4.18.1",
     "memory-cache": "^0.2.0",
     "mongodb": "^7.0.0",
+    "openai": "^4.78.1",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^9.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
