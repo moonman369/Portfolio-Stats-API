@@ -56,6 +56,7 @@ async function vectorSearch(query, limit = 5) {
           title: 1,
           category: 1,
           summary_for_embedding: 1,
+          content_full: 1,
           metadata: 1,
           score: { $meta: "vectorSearchScore" },
         },

@@ -67,7 +67,7 @@ function sanitizeSingleDocument(document = {}) {
     return null;
   }
 
-  const content = document.summary_for_embedding || document.content_full;
+  const content = document.content_full || document.summary_for_embedding;
   const metadata = sanitizeMetadata(document.metadata);
 
   const sanitized = {

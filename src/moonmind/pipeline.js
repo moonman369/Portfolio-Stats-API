@@ -6,6 +6,25 @@ const { generateResponse } = require("./responseGenerator");
 const { MoonMindError } = require("./utils/errors");
 const { debugLog, serializeError } = require("./utils/debug");
 
+function buildResponseDocuments(documents = []) {
+  if (!Array.isArray(documents)) {
+    return [];
+  }
+
+  return documents.map((document) => {
+    const { summary_for_embedding, ...responseDocument } = document || {};
+    return {
+      ...responseDocument,
+      content_full: Object.prototype.hasOwnProperty.call(
+        responseDocument,
+        "content_full",
+      )
+        ? responseDocument.content_full
+        : null,
+    };
+  });
+}
+
 async function runMoonMindPipeline({ query, sessionId, metadata = {} }) {
   const requestId = crypto.randomUUID();
 
@@ -66,7 +85,7 @@ async function runMoonMindPipeline({ query, sessionId, metadata = {} }) {
       status: "success",
       data: {
         summary,
-        documents: rankedDocuments,
+        documents: buildResponseDocuments(rankedDocuments),
       },
     };
   } catch (error) {
@@ -79,5 +98,6 @@ async function runMoonMindPipeline({ query, sessionId, metadata = {} }) {
 }
 
 module.exports = {
+  buildResponseDocuments,
   runMoonMindPipeline,
 };
