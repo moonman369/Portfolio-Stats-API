@@ -15,6 +15,27 @@ const {
 
 let schemaEnsured = false;
 
+function sanitizeLegacyMetadata(metadata, id) {
+  const source = metadata || {};
+  const normalizedDomain =
+    typeof source.domain === "string" ? source.domain : null;
+  const isValidDomain = VECTOR_CONFIG.ALLOWED_DOMAINS.includes(normalizedDomain);
+
+  if (normalizedDomain && !isValidDomain) {
+    console.warn("vectorMemory.legacy.invalid_domain", {
+      id,
+      domain: normalizedDomain,
+    });
+  }
+
+  return {
+    ...source,
+    domain: isValidDomain ? normalizedDomain : null,
+    subcategory: Array.isArray(source.subcategory) ? source.subcategory : [],
+  };
+}
+
+
 async function ensureStorage() {
   if (schemaEnsured) {
     return;
@@ -77,7 +98,7 @@ function buildMetadataIndexDocument(vectorDoc) {
     tags: vectorDoc.tags,
     content_full: vectorDoc.content_full,
     summary_for_embedding: vectorDoc.summary_for_embedding,
-    metadata: vectorDoc.metadata,
+    metadata: sanitizeLegacyMetadata(vectorDoc.metadata, vectorDoc.id),
     updated_at: vectorDoc.updated_at,
   };
 }

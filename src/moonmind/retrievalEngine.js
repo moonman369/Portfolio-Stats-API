@@ -1,6 +1,7 @@
 const { connectToDatabase } = require("../../mongo");
 const { vectorSearch } = require("./retrieval/vectorSearch");
 const { debugLog } = require("./utils/debug");
+const VECTOR_CONFIG = require("../../config/vectorConfig");
 
 const VECTOR_COLLECTION =
   process.env.MOONMIND_VECTOR_COLLECTION || "moonmind_documents";
@@ -10,13 +11,37 @@ function escapeRegex(value) {
 }
 
 function normalizeDocument(document) {
+  const metadata = document.metadata || {};
+  const normalizedSubcategory = Array.isArray(metadata.subcategory)
+    ? metadata.subcategory.filter((value) => typeof value === "string")
+    : [];
+
+  const normalizedDomain =
+    typeof metadata.domain === "string" ? metadata.domain : null;
+
+  if (
+    normalizedDomain &&
+    !VECTOR_CONFIG.ALLOWED_DOMAINS.includes(normalizedDomain)
+  ) {
+    console.warn("moonmind.retrieval.invalid_domain", {
+      id: document.id,
+      domain: normalizedDomain,
+    });
+  }
+
   return {
     id: document.id,
     title: document.title,
     category: document.category,
     summary_for_embedding: document.summary_for_embedding,
     content_full: document.content_full,
-    metadata: document.metadata || {},
+    metadata: {
+      ...metadata,
+      domain: VECTOR_CONFIG.ALLOWED_DOMAINS.includes(normalizedDomain)
+        ? normalizedDomain
+        : null,
+      subcategory: normalizedSubcategory,
+    },
   };
 }
 
@@ -46,6 +71,22 @@ function buildMetadataQuery(intentPayload, runtimeMetadata = {}) {
     });
   }
 
+  if (
+    typeof intentPayload?.domain === "string" &&
+    intentPayload.domain.trim()
+  ) {
+    clauses.push({ "metadata.domain": intentPayload.domain.trim() });
+  }
+
+  if (
+    Array.isArray(intentPayload?.subcategories) &&
+    intentPayload.subcategories.length > 0
+  ) {
+    clauses.push({
+      "metadata.subcategory": { $in: intentPayload.subcategories },
+    });
+  }
+
   if (entityTerms.length > 0) {
     clauses.push({
       $or: entityTerms.map((term) => {
@@ -66,6 +107,7 @@ function buildMetadataQuery(intentPayload, runtimeMetadata = {}) {
 
   if (dateRange.from || dateRange.to) {
     const dateClause = {};
+    const upperBound = dateRange.to || new Date().toISOString();
 
     if (dateRange.from) {
       dateClause.$gte = dateRange.from;
@@ -79,6 +121,17 @@ function buildMetadataQuery(intentPayload, runtimeMetadata = {}) {
       $or: [
         { "metadata.date_start": dateClause },
         { "metadata.date_end": dateClause },
+        {
+          $and: [
+            { "metadata.date_start": { $lte: upperBound, $ne: null } },
+            {
+              $or: [
+                { "metadata.date_end": null },
+                { "metadata.date_end": { $exists: false } },
+              ],
+            },
+          ],
+        },
       ],
     });
   }

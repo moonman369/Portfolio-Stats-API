@@ -34,19 +34,18 @@ const vectorDocumentJsonSchema = {
       required: [
         "domain",
         "subcategory",
-        "date_start",
-        "date_end",
-        "completion_year",
         "verified",
         "proficiency_level",
         "organization",
         "impact_score",
         "is_active",
-        "external_link",
       ],
       properties: {
         domain: { enum: VECTOR_CONFIG.ALLOWED_DOMAINS },
-        subcategory: { bsonType: ["string", "null"] },
+        subcategory: {
+          bsonType: "array",
+          items: { enum: VECTOR_CONFIG.ALLOWED_SUBCATEGORIES },
+        },
         date_start: { bsonType: ["string", "null"] },
         date_end: { bsonType: ["string", "null"] },
         completion_year: { bsonType: ["int", "long", "double", "null"] },
@@ -58,6 +57,12 @@ const vectorDocumentJsonSchema = {
         impact_score: { bsonType: ["int", "long", "double", "null"] },
         is_active: { bsonType: "bool" },
         external_link: { bsonType: ["string", "null"] },
+        external_links: {
+          bsonType: ["object", "null"],
+          additionalProperties: {
+            bsonType: "string",
+          },
+        },
       },
     },
     embedding: {
@@ -81,7 +86,7 @@ const moonmindPayloadExamples = Object.freeze({
       "Designed and maintained production backend services for portfolio stats retrieval, ingestion, and deterministic search alignment.",
     metadata: {
       domain: "skills",
-      subcategory: "backend",
+      subcategory: ["backend"],
       date_start: "2023-01-01T00:00:00.000Z",
       date_end: null,
       completion_year: null,
@@ -103,7 +108,7 @@ const moonmindPayloadExamples = Object.freeze({
     content_full: null,
     metadata: {
       domain: "certifications",
-      subcategory: "cloud",
+      subcategory: ["cloud"],
       date_start: null,
       date_end: "2024-06-10T00:00:00.000Z",
       completion_year: 2024,
@@ -126,7 +131,7 @@ const moonmindPayloadExamples = Object.freeze({
       "Owned core backend systems for intent routing, retrieval, and portfolio response assembly.",
     metadata: {
       domain: "experience",
-      subcategory: "engineering",
+      subcategory: ["backend", "system-design"],
       date_start: "2022-02-01T00:00:00.000Z",
       date_end: null,
       completion_year: null,
@@ -149,7 +154,7 @@ const moonmindPayloadExamples = Object.freeze({
       "Implemented full retrieval flow with strict rule enforcement and no inference drift.",
     metadata: {
       domain: "projects",
-      subcategory: "search",
+      subcategory: ["search", "rag"],
       date_start: "2025-01-10T00:00:00.000Z",
       date_end: null,
       completion_year: null,
@@ -171,7 +176,7 @@ const moonmindPayloadExamples = Object.freeze({
     content_full: null,
     metadata: {
       domain: "hobbies",
-      subcategory: "technical",
+      subcategory: ["technical", "competitive-programming"],
       date_start: "2021-01-01T00:00:00.000Z",
       date_end: null,
       completion_year: null,
