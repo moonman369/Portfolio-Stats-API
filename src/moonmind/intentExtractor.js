@@ -1,5 +1,6 @@
 const { createChatCompletion } = require("./adapters/openaiClient");
 const { debugLog, serializeError } = require("./utils/debug");
+const VECTOR_CONFIG = require("../../config/vectorConfig");
 
 const INTENT_MODEL = process.env.MOONMIND_INTENT_MODEL || "gpt-4o-mini";
 
@@ -20,6 +21,9 @@ const DEFAULT_INTENT_PAYLOAD = {
       to: null,
     },
   },
+  domain: null,
+  subcategories: [],
+  requires_retrieval: true,
   filters: {
     domain: [],
     time_range: null,
@@ -27,6 +31,41 @@ const DEFAULT_INTENT_PAYLOAD = {
 };
 
 const VALID_INTENTS = new Set(["question", "greeting", "chat"]);
+const SUBCATEGORY_SET = new Set(VECTOR_CONFIG.ALLOWED_SUBCATEGORIES);
+const DOMAIN_RULES = [
+  { pattern: /\bskills?\b|\btech\s*stack\b|\bstrengths?\b/i, domain: "skills" },
+  { pattern: /\bprojects?\b|\bbuild\b|\bimplemented\b/i, domain: "projects" },
+  { pattern: /\bexperiences?\b|\bwork\b|\brole\b/i, domain: "experience" },
+  { pattern: /\bcertifications?\b|\bcertified\b/i, domain: "certifications" },
+  { pattern: /\beducation\b|\bdegree\b|\buniversity\b/i, domain: "education" },
+  { pattern: /\bachievements?\b|\bawards?\b|\branking\b/i, domain: "achievements" },
+  { pattern: /\bresearch\b|\bpaper\b|\bpublication\b|\bnlp\b/i, domain: "research" },
+  { pattern: /\bhobbies?\b|\binterests?\b|\bgaming\b|\bwriting\b/i, domain: "hobbies" },
+];
+
+const SUBCATEGORY_RULES = [
+  ["backend", /\bbackend\b|\bnode\b|\bexpress\b/i],
+  ["frontend", /\bfrontend\b|\breact\b|\bui\b/i],
+  ["database", /\bmongodb\b|\bpostgres\b|\bdatabase\b/i],
+  ["devops", /\bdevops\b|\bci\/cd\b|\bdocker\b/i],
+  ["cloud", /\bcloud\b|\baws\b|\bazure\b|\bgcp\b/i],
+  ["api", /\bapi\b/],
+  ["api-design", /\bapi\s*design\b/i],
+  ["system-design", /\bsystem\s*design\b/i],
+  ["distributed-systems", /\bdistributed\b|\bmicroservices\b/i],
+  ["machine-learning", /\bmachine\s*learning\b|\bml\b/i],
+  ["generative-ai", /\bgenerative\s*ai\b|\bllm\b/i],
+  ["rag", /\brag\b|\bretrieval[-\s]*augmented\b/i],
+  ["vector-databases", /\bvector\s*db\b|\bvector\s*database\b/i],
+  ["ai", /\bai\b|\bartificial\s*intelligence\b/i],
+  ["search", /\bsearch\b|\bretriev\w*\b/i],
+  ["scalable", /\bscalable\b|\bscale\b/i],
+  ["high-performance", /\bhigh[-\s]*performance\b|\blatency\b/i],
+  ["algorithms", /\balgorithm\w*\b/i],
+  ["competitive-programming", /\bcompetitive\s*programming\b|\bleetcode\b/i],
+  ["technical", /\btechnical\b/i],
+  ["learning", /\blearning\b/i],
+];
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) {
@@ -58,6 +97,50 @@ function normalizeDateRange(value) {
   };
 }
 
+function inferDeterministicIntentTaxonomy(query) {
+  const normalizedQuery = String(query || "").trim();
+  const lower = normalizedQuery.toLowerCase();
+
+  const isGreeting = /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening))\b/.test(lower);
+  const isCasual = /\bhow are you\b|\bwhat'?s up\b|\bthanks\b/.test(lower);
+  const isMeta = /\bwho are you\b|\bwhat can you do\b|\bsystem\b/.test(lower);
+
+  const domain = DOMAIN_RULES.find(({ pattern }) => pattern.test(normalizedQuery))?.domain || null;
+  const subcategories = SUBCATEGORY_RULES.filter(([, pattern]) => pattern.test(normalizedQuery)).map(
+    ([subcategory]) => subcategory,
+  );
+
+  const requiresRetrieval = !(isGreeting || isCasual || isMeta);
+
+  return {
+    domain,
+    subcategories: [...new Set(subcategories)].filter((value) => SUBCATEGORY_SET.has(value)),
+    requires_retrieval: requiresRetrieval,
+  };
+}
+
+function normalizeIntentTaxonomy(payload) {
+  const domainCandidate = typeof payload?.domain === "string" ? payload.domain.trim() : null;
+  const domain = VECTOR_CONFIG.ALLOWED_DOMAINS.includes(domainCandidate)
+    ? domainCandidate
+    : null;
+
+  const subcategories = normalizeStringArray(payload?.subcategories).filter((value) =>
+    SUBCATEGORY_SET.has(value),
+  );
+
+  const requiresRetrieval =
+    typeof payload?.requires_retrieval === "boolean"
+      ? payload.requires_retrieval
+      : DEFAULT_INTENT_PAYLOAD.requires_retrieval;
+
+  return {
+    domain,
+    subcategories,
+    requires_retrieval: requiresRetrieval,
+  };
+}
+
 function normalizeIntentPayload(payload) {
   const normalized = {
     intent: VALID_INTENTS.has(payload?.intent)
@@ -84,6 +167,7 @@ function normalizeIntentPayload(payload) {
       organizations: normalizeStringArray(payload?.entities?.organizations),
       dates: normalizeDateRange(payload?.entities?.dates),
     },
+    ...normalizeIntentTaxonomy(payload),
     filters: {
       domain: normalizeStringArray(payload?.filters?.domain),
       time_range:
@@ -100,6 +184,12 @@ function normalizeIntentPayload(payload) {
     !normalized.retrieval_plan.metadata
   ) {
     normalized.retrieval_plan.semantic = normalized.intent === "question";
+  }
+
+  if (!normalized.requires_retrieval) {
+    normalized.retrieval_plan.semantic = false;
+    normalized.retrieval_plan.keyword = false;
+    normalized.retrieval_plan.metadata = false;
   }
 
   return normalized;
@@ -132,6 +222,46 @@ function buildIntentMessages(query) {
   ];
 }
 
+function buildTaxonomyMessages(query) {
+  return [
+    {
+      role: "system",
+      content: [
+        "Return only valid JSON with exactly these keys: domain, subcategories, requires_retrieval.",
+        `domain must be one of ${JSON.stringify(VECTOR_CONFIG.ALLOWED_DOMAINS)} or null.`,
+        `subcategories must contain only values from ${JSON.stringify(VECTOR_CONFIG.ALLOWED_SUBCATEGORIES)}.`,
+        "requires_retrieval is boolean.",
+        "No extra keys. No explanations.",
+        "If unsure, return domain null, empty subcategories, requires_retrieval true.",
+      ].join(" "),
+    },
+    {
+      role: "user",
+      content: query,
+    },
+  ];
+}
+
+async function extractTaxonomyIntentWithLLM(query) {
+  const completion = await createChatCompletion({
+    model: INTENT_MODEL,
+    messages: buildTaxonomyMessages(query),
+    responseFormat: { type: "json_object" },
+    temperature: 0,
+  });
+
+  const content = completion?.choices?.[0]?.message?.content;
+  if (!content) {
+    return null;
+  }
+
+  try {
+    return normalizeIntentTaxonomy(JSON.parse(content));
+  } catch {
+    return null;
+  }
+}
+
 async function extractIntent({ query, requestId, sessionId }) {
   debugLog("moonmind.intent.start", {
     requestId,
@@ -154,13 +284,37 @@ async function extractIntent({ query, requestId, sessionId }) {
   try {
     const parsed = JSON.parse(content);
     const normalized = normalizeIntentPayload(parsed);
+    const deterministicTaxonomy = inferDeterministicIntentTaxonomy(query);
+    let taxonomy = deterministicTaxonomy;
 
-    debugLog("moonmind.intent.extracted", {
+    if (!taxonomy.domain && taxonomy.subcategories.length === 0) {
+      const llmTaxonomy = await extractTaxonomyIntentWithLLM(query);
+      if (llmTaxonomy) {
+        taxonomy = llmTaxonomy;
+      }
+    }
+
+    normalized.domain = taxonomy.domain;
+    normalized.subcategories = taxonomy.subcategories;
+    normalized.requires_retrieval = taxonomy.requires_retrieval;
+
+    if (!normalized.requires_retrieval) {
+      normalized.retrieval_plan.semantic = false;
+      normalized.retrieval_plan.keyword = false;
+      normalized.retrieval_plan.metadata = false;
+    }
+
+    if (normalized.domain && !normalized.filters.domain.includes(normalized.domain)) {
+      normalized.filters.domain = [...normalized.filters.domain, normalized.domain];
+    }
+
+    debugLog("moonmind.intent.classification", {
       requestId,
       intent: normalized.intent,
+      domain: normalized.domain,
+      subcategories: normalized.subcategories,
+      requires_retrieval: normalized.requires_retrieval,
       retrieval_plan: normalized.retrieval_plan,
-      entities: normalized.entities,
-      filters: normalized.filters,
     });
 
     return normalized;
@@ -177,5 +331,7 @@ async function extractIntent({ query, requestId, sessionId }) {
 module.exports = {
   DEFAULT_INTENT_PAYLOAD,
   normalizeIntentPayload,
+  normalizeIntentTaxonomy,
+  inferDeterministicIntentTaxonomy,
   extractIntent,
 };

@@ -20,7 +20,7 @@ const PROHIBITED_PATTERNS = [
 const metadataSchema = z
   .object({
     domain: z.enum(VECTOR_CONFIG.ALLOWED_DOMAINS),
-    subcategory: z.string().trim().min(1).max(120).nullable(),
+    subcategory: z.array(z.enum(VECTOR_CONFIG.ALLOWED_SUBCATEGORIES)).default([]),
     date_start: z.string().datetime({ offset: true }).nullable(),
     date_end: z.string().datetime({ offset: true }).nullable(),
     completion_year: z.number().int().min(1900).max(3000).nullable(),
@@ -63,7 +63,7 @@ function assertNoProhibitedContent(document) {
     ...(document.tags || []),
     document.summary_for_embedding || "",
     document.content_full || "",
-    document.metadata?.subcategory || "",
+    ...(document.metadata?.subcategory || []),
     document.metadata?.organization || "",
   ];
 
@@ -97,6 +97,28 @@ function assertSummaryConstraints(document) {
   ) {
     throw createValidationError(
       `summary_for_embedding must contain ${VECTOR_CONFIG.SUMMARY_MIN_SENTENCES}-${VECTOR_CONFIG.SUMMARY_MAX_SENTENCES} sentences`,
+    );
+  }
+}
+
+
+function assertDomainEnum(document) {
+  const { domain } = document.metadata || {};
+  if (!VECTOR_CONFIG.ALLOWED_DOMAINS.includes(domain)) {
+    throw createValidationError(
+      `metadata.domain must be one of: ${VECTOR_CONFIG.ALLOWED_DOMAINS.join(", ")}`,
+    );
+  }
+}
+
+function assertSubcategoryEnum(document) {
+  const invalid = (document.metadata?.subcategory || []).filter(
+    (value) => !VECTOR_CONFIG.ALLOWED_SUBCATEGORIES.includes(value),
+  );
+
+  if (invalid.length > 0) {
+    throw createValidationError(
+      `metadata.subcategory contains invalid values: ${invalid.join(", ")}`,
     );
   }
 }
@@ -141,7 +163,7 @@ function assertDateConsistency(document) {
 function normalizeMetadata(metadata) {
   return {
     domain: metadata.domain,
-    subcategory: metadata.subcategory,
+    subcategory: Array.isArray(metadata.subcategory) ? metadata.subcategory : [],
     date_start: metadata.date_start,
     date_end: metadata.date_end,
     completion_year: metadata.completion_year,
@@ -174,6 +196,8 @@ function validateCreatePayload(payload) {
   }
 
   const normalized = normalizeDocument(parsed.data);
+  assertDomainEnum(normalized);
+  assertSubcategoryEnum(normalized);
   assertDomainCategoryAlignment(normalized);
   assertDateConsistency(normalized);
   assertNoProhibitedContent(normalized);
@@ -190,6 +214,8 @@ function validateUpdatePayload(payload) {
   }
 
   const normalized = normalizeDocument(parsed.data);
+  assertDomainEnum(normalized);
+  assertSubcategoryEnum(normalized);
   assertDomainCategoryAlignment(normalized);
   assertDateConsistency(normalized);
   assertNoProhibitedContent(normalized);
