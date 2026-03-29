@@ -101,6 +101,27 @@ test("inferDeterministicIntentTaxonomy disables retrieval for greetings", () => 
   assert.deepEqual(taxonomy.subcategories, []);
 });
 
+test("inferDeterministicIntentTaxonomy keeps retrieval for greeting-prefixed certification query", () => {
+  const taxonomy = inferDeterministicIntentTaxonomy(
+    "Hey! Does Ayan have an oracle certification?",
+  );
+  assert.equal(taxonomy.requires_retrieval, true);
+  assert.equal(taxonomy.domain, "certifications");
+});
+
+test("normalizeIntentPayload forces semantic retrieval when required and strategy is empty", () => {
+  const normalized = normalizeIntentPayload({
+    intent: "greeting",
+    retrieval_plan: { semantic: false, keyword: false, metadata: false },
+    entities: {},
+    filters: {},
+    requires_retrieval: true,
+  });
+
+  assert.equal(normalized.requires_retrieval, true);
+  assert.equal(normalized.retrieval_plan.semantic, true);
+});
+
 test("buildMetadataQuery injects strict domain and subcategory filters", () => {
   const query = buildMetadataQuery({
     domain: "projects",

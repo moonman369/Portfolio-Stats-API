@@ -13,7 +13,9 @@ function buildMessages({ query, documents, intent }) {
     "- Do NOT mention ranking, embeddings, or retrieval process.",
     "- Do NOT expose metadata field names or internal JSON structure.",
     "- Do NOT hallucinate or add facts not present in the documents.",
-    "- If no useful documents are provided, clearly state that no relevant information was found.",
+    "- If no useful documents are provided, do NOT return a generic refusal.",
+    "- When no documents are found, still answer the user's actual query in a helpful concise way and include a clear note that MoonMind has no matching supporting documents right now.",
+    "- If the user message is greeting-only, return a friendly greeting and offer portfolio help.",
     "FORMAT RULES:",
     "- Use clean markdown.",
     "- Use bullet points or numbered lists where appropriate.",
@@ -26,6 +28,7 @@ function buildMessages({ query, documents, intent }) {
   const payload = {
     query,
     documents,
+    no_documents_found: !Array.isArray(documents) || documents.length === 0,
   };
 
   return [
@@ -46,13 +49,9 @@ async function generateResponse({ query, documents, intent }) {
     documentCount: Array.isArray(documents) ? documents.length : 0,
   });
 
-  if (!Array.isArray(documents) || documents.length === 0) {
-    return "I could not find supporting MoonMind data for that request.";
-  }
-
   debugLog("moonmind.response.sanitization.before", {
-    documentCount: documents.length,
-    sampleDocument: documents[0] || null,
+    documentCount: Array.isArray(documents) ? documents.length : 0,
+    sampleDocument: Array.isArray(documents) ? documents[0] || null : null,
   });
 
   const sanitizedDocuments = sanitizeDocumentsForLLM(documents);
@@ -94,5 +93,6 @@ async function generateResponse({ query, documents, intent }) {
 }
 
 module.exports = {
+  buildMessages,
   generateResponse,
 };
