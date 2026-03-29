@@ -1,5 +1,43 @@
 "use strict";
 
+function parseSentenceBound(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function parseBooleanFlag(value, fallback = true) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["false", "0", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+const SUMMARY_MIN_SENTENCES = parseSentenceBound(
+  process.env.MOONMIND_SUMMARY_MIN_SENTENCES,
+  3,
+);
+const SUMMARY_MAX_SENTENCES = Math.max(
+  SUMMARY_MIN_SENTENCES,
+  parseSentenceBound(process.env.MOONMIND_SUMMARY_MAX_SENTENCES, 6),
+);
+const ENFORCE_SUMMARY_SENTENCE_RANGE = parseBooleanFlag(
+  process.env.MOONMIND_ENFORCE_SUMMARY_SENTENCE_RANGE,
+  true,
+);
+
 const VECTOR_CONFIG = Object.freeze({
   DB_NAME: process.env.MOONMIND_DB_NAME || "portfolio-stats-api",
   DOCUMENT_COLLECTION:
@@ -11,8 +49,9 @@ const VECTOR_CONFIG = Object.freeze({
   VECTOR_INDEX_NAME:
     process.env.MOONMIND_VECTOR_INDEX_NAME || "moonmind_vector_index",
   MAX_SUMMARY_CHARACTERS: 4000,
-  SUMMARY_MIN_SENTENCES: 3,
-  SUMMARY_MAX_SENTENCES: 6,
+  SUMMARY_MIN_SENTENCES,
+  SUMMARY_MAX_SENTENCES,
+  ENFORCE_SUMMARY_SENTENCE_RANGE,
   ALLOWED_CATEGORIES: [
     "skill",
     "certification",
