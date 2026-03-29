@@ -20,7 +20,11 @@ app.use(express.json({ limit: "1mb" }));
 // CORS configuration
 app.use(
   cors({
-    origin: ["https://devfoliomoonman369.netlify.app", "https://moonman.in"],
+    origin: [
+      "https://devfoliomoonman369.netlify.app",
+      "https://moonman.in",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

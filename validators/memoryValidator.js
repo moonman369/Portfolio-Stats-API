@@ -43,7 +43,12 @@ const baseDocumentSchema = z
     title: z.string().trim().min(2).max(180),
     category: z.enum(VECTOR_CONFIG.ALLOWED_CATEGORIES),
     tags: z.array(z.string().trim().min(1).max(64)).max(50),
-    summary_for_embedding: z.string().trim().min(20).max(VECTOR_CONFIG.MAX_SUMMARY_CHARACTERS).optional(),
+    summary_for_embedding: z
+      .string()
+      .trim()
+      .min(20)
+      .max(VECTOR_CONFIG.MAX_SUMMARY_CHARACTERS)
+      .optional(),
     content_full: z.string().trim().max(25000).nullable(),
     metadata: metadataSchema,
   })
@@ -65,7 +70,9 @@ function assertNoProhibitedContent(document) {
   const combined = fieldsToInspect.join("\n");
   for (const pattern of PROHIBITED_PATTERNS) {
     if (pattern.test(combined)) {
-      throw createValidationError("Document contains prohibited sensitive or system-level content");
+      throw createValidationError(
+        "Document contains prohibited sensitive or system-level content",
+      );
     }
   }
 }
@@ -76,6 +83,10 @@ function countSentences(text) {
 }
 
 function assertSummaryConstraints(document) {
+  if (!VECTOR_CONFIG.ENFORCE_SUMMARY_SENTENCE_RANGE) {
+    return;
+  }
+
   if (!document.summary_for_embedding) {
     return;
   }
@@ -100,14 +111,30 @@ function assertDomainCategoryAlignment(document) {
 }
 
 function assertDateConsistency(document) {
-  const { date_start: dateStart, date_end: dateEnd, completion_year: completionYear } = document.metadata;
+  const {
+    date_start: dateStart,
+    date_end: dateEnd,
+    completion_year: completionYear,
+  } = document.metadata;
 
-  if (dateStart && dateEnd && new Date(dateStart).getTime() > new Date(dateEnd).getTime()) {
-    throw createValidationError("metadata.date_start cannot be after metadata.date_end");
+  if (
+    dateStart &&
+    dateEnd &&
+    new Date(dateStart).getTime() > new Date(dateEnd).getTime()
+  ) {
+    throw createValidationError(
+      "metadata.date_start cannot be after metadata.date_end",
+    );
   }
 
-  if (dateEnd && completionYear && new Date(dateEnd).getUTCFullYear() !== completionYear) {
-    throw createValidationError("metadata.completion_year must match metadata.date_end year");
+  if (
+    dateEnd &&
+    completionYear &&
+    new Date(dateEnd).getUTCFullYear() !== completionYear
+  ) {
+    throw createValidationError(
+      "metadata.completion_year must match metadata.date_end year",
+    );
   }
 }
 
@@ -141,7 +168,9 @@ function normalizeDocument(document) {
 function validateCreatePayload(payload) {
   const parsed = createDocumentSchema.safeParse(payload);
   if (!parsed.success) {
-    throw createValidationError(parsed.error.issues.map((issue) => issue.message).join("; "));
+    throw createValidationError(
+      parsed.error.issues.map((issue) => issue.message).join("; "),
+    );
   }
 
   const normalized = normalizeDocument(parsed.data);
@@ -155,7 +184,9 @@ function validateCreatePayload(payload) {
 function validateUpdatePayload(payload) {
   const parsed = updateDocumentSchema.safeParse(payload);
   if (!parsed.success) {
-    throw createValidationError(parsed.error.issues.map((issue) => issue.message).join("; "));
+    throw createValidationError(
+      parsed.error.issues.map((issue) => issue.message).join("; "),
+    );
   }
 
   const normalized = normalizeDocument(parsed.data);
@@ -176,7 +207,9 @@ function validateDeletePayload(payload) {
     .strict();
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    throw createValidationError(parsed.error.issues.map((issue) => issue.message).join("; "));
+    throw createValidationError(
+      parsed.error.issues.map((issue) => issue.message).join("; "),
+    );
   }
   return parsed.data;
 }
