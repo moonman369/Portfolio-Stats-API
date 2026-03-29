@@ -34,15 +34,11 @@ const vectorDocumentJsonSchema = {
       required: [
         "domain",
         "subcategory",
-        "date_start",
-        "date_end",
-        "completion_year",
         "verified",
         "proficiency_level",
         "organization",
         "impact_score",
         "is_active",
-        "external_link",
       ],
       properties: {
         domain: { enum: VECTOR_CONFIG.ALLOWED_DOMAINS },
@@ -61,6 +57,12 @@ const vectorDocumentJsonSchema = {
         impact_score: { bsonType: ["int", "long", "double", "null"] },
         is_active: { bsonType: "bool" },
         external_link: { bsonType: ["string", "null"] },
+        external_links: {
+          bsonType: ["object", "null"],
+          additionalProperties: {
+            bsonType: "string",
+          },
+        },
       },
     },
     embedding: {
@@ -129,7 +131,7 @@ const moonmindPayloadExamples = Object.freeze({
       "Owned core backend systems for intent routing, retrieval, and portfolio response assembly.",
     metadata: {
       domain: "experience",
-      subcategory: ["backend","system-design"],
+      subcategory: ["backend", "system-design"],
       date_start: "2022-02-01T00:00:00.000Z",
       date_end: null,
       completion_year: null,
@@ -152,7 +154,7 @@ const moonmindPayloadExamples = Object.freeze({
       "Implemented full retrieval flow with strict rule enforcement and no inference drift.",
     metadata: {
       domain: "projects",
-      subcategory: ["search","rag"],
+      subcategory: ["search", "rag"],
       date_start: "2025-01-10T00:00:00.000Z",
       date_end: null,
       completion_year: null,
@@ -174,7 +176,7 @@ const moonmindPayloadExamples = Object.freeze({
     content_full: null,
     metadata: {
       domain: "hobbies",
-      subcategory: ["technical","competitive-programming"],
+      subcategory: ["technical", "competitive-programming"],
       date_start: "2021-01-01T00:00:00.000Z",
       date_end: null,
       completion_year: null,

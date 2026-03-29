@@ -8,8 +8,29 @@ const SAFE_METADATA_FIELDS = [
   "date_end",
   "completion_year",
   "is_active",
-  "external_link",
 ];
+
+function sanitizeExternalLinks(externalLinks) {
+  if (
+    !externalLinks ||
+    typeof externalLinks !== "object" ||
+    Array.isArray(externalLinks)
+  ) {
+    return undefined;
+  }
+
+  const sanitizedEntries = Object.entries(externalLinks).filter(
+    ([key, value]) =>
+      typeof key === "string" &&
+      key.trim() &&
+      typeof value === "string" &&
+      value.trim(),
+  );
+
+  return sanitizedEntries.length > 0
+    ? Object.fromEntries(sanitizedEntries)
+    : undefined;
+}
 
 function sanitizeMetadata(metadata) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
@@ -27,6 +48,16 @@ function sanitizeMetadata(metadata) {
       [field]: value,
     };
   }, {});
+
+  const externalLinks = sanitizeExternalLinks(metadata.external_links);
+  if (externalLinks) {
+    safeMetadata.external_links = externalLinks;
+  } else if (
+    typeof metadata.external_link === "string" &&
+    metadata.external_link.trim()
+  ) {
+    safeMetadata.external_link = metadata.external_link;
+  }
 
   return Object.keys(safeMetadata).length > 0 ? safeMetadata : undefined;
 }

@@ -29,7 +29,18 @@ function normalizeDoc(doc) {
 }
 
 function parseDateScore(metadata = {}) {
-  const candidates = [metadata.date_end, metadata.date_start, metadata.completion_year]
+  const inferredCurrentEnd =
+    metadata.date_start &&
+    (metadata.date_end === null || metadata.date_end === undefined)
+      ? new Date().toISOString()
+      : null;
+
+  const candidates = [
+    metadata.date_end,
+    inferredCurrentEnd,
+    metadata.date_start,
+    metadata.completion_year,
+  ]
     .filter(Boolean)
     .map((value) => {
       if (typeof value === "number") {
@@ -44,11 +55,18 @@ function parseDateScore(metadata = {}) {
   }
 
   const latest = Math.max(...candidates);
-  const ageYears = Math.max(0, (Date.now() - latest) / (1000 * 60 * 60 * 24 * 365));
+  const ageYears = Math.max(
+    0,
+    (Date.now() - latest) / (1000 * 60 * 60 * 24 * 365),
+  );
   return Math.max(0, 1 - ageYears / 10);
 }
 
-function buildMetadataQuery({ metadataFilters = [], domains = [], runtimeMetadata = {} }) {
+function buildMetadataQuery({
+  metadataFilters = [],
+  domains = [],
+  runtimeMetadata = {},
+}) {
   const clauses = [];
 
   if (domains.length) {
@@ -95,7 +113,12 @@ function buildKeywordQuery(keywordFilters = []) {
   };
 }
 
-function applyBooleanLogic({ metadataQuery, keywordQuery, operator, negations }) {
+function applyBooleanLogic({
+  metadataQuery,
+  keywordQuery,
+  operator,
+  negations,
+}) {
   const conditions = [metadataQuery, keywordQuery].filter(Boolean);
   const base =
     conditions.length === 0
@@ -112,7 +135,12 @@ function applyBooleanLogic({ metadataQuery, keywordQuery, operator, negations })
     const safe = escapeRegex(term);
     const regex = { $regex: safe, $options: "i" };
     return {
-      $or: [{ title: regex }, { tags: regex }, { content_full: regex }, { summary_for_embedding: regex }],
+      $or: [
+        { title: regex },
+        { tags: regex },
+        { content_full: regex },
+        { summary_for_embedding: regex },
+      ],
     };
   });
 
@@ -211,14 +239,24 @@ function deterministicRerank(items) {
     }
 
     if (Boolean(b.metadata?.verified) !== Boolean(a.metadata?.verified)) {
-      return Number(Boolean(b.metadata?.verified)) - Number(Boolean(a.metadata?.verified));
+      return (
+        Number(Boolean(b.metadata?.verified)) -
+        Number(Boolean(a.metadata?.verified))
+      );
     }
 
     return String(a.id).localeCompare(String(b.id));
   });
 }
 
-async function fullSearch({ semanticQuery, filters, booleanLogic, domains, runtimeMetadata, limit }) {
+async function fullSearch({
+  semanticQuery,
+  filters,
+  booleanLogic,
+  domains,
+  runtimeMetadata,
+  limit,
+}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 5;
 
   const metadataQuery = buildMetadataQuery({
@@ -231,7 +269,10 @@ async function fullSearch({ semanticQuery, filters, booleanLogic, domains, runti
     metadataQuery,
     keywordQuery,
     operator: booleanLogic.operator,
-    negations: [...(booleanLogic.negations || []), ...(filters.exclusions || [])],
+    negations: [
+      ...(booleanLogic.negations || []),
+      ...(filters.exclusions || []),
+    ],
   });
 
   debugLog("fullSearch.pipeline", {
@@ -242,18 +283,19 @@ async function fullSearch({ semanticQuery, filters, booleanLogic, domains, runti
     domainCount: domains?.length ?? 0,
   });
 
-  const [metadataResults, keywordResults, booleanResults, semanticResults] = await Promise.all([
-    mongoSearch(metadataQuery, Math.max(safeLimit * 3, 12)).then((items) =>
-      items.map((item) => ({ ...item, score: 0.7 })),
-    ),
-    mongoSearch(keywordQuery, Math.max(safeLimit * 3, 12)).then((items) =>
-      items.map((item) => ({ ...item, score: 0.8 })),
-    ),
-    mongoSearch(booleanQuery, Math.max(safeLimit * 4, 16)).then((items) =>
-      items.map((item) => ({ ...item, score: 0.75 })),
-    ),
-    vectorSearch(semanticQuery, Math.max(safeLimit * 2, 10)),
-  ]);
+  const [metadataResults, keywordResults, booleanResults, semanticResults] =
+    await Promise.all([
+      mongoSearch(metadataQuery, Math.max(safeLimit * 3, 12)).then((items) =>
+        items.map((item) => ({ ...item, score: 0.7 })),
+      ),
+      mongoSearch(keywordQuery, Math.max(safeLimit * 3, 12)).then((items) =>
+        items.map((item) => ({ ...item, score: 0.8 })),
+      ),
+      mongoSearch(booleanQuery, Math.max(safeLimit * 4, 16)).then((items) =>
+        items.map((item) => ({ ...item, score: 0.75 })),
+      ),
+      vectorSearch(semanticQuery, Math.max(safeLimit * 2, 10)),
+    ]);
 
   const merged = mergeResults({
     metadataResults: [...metadataResults, ...booleanResults],

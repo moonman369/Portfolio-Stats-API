@@ -20,10 +20,12 @@ const PROHIBITED_PATTERNS = [
 const metadataSchema = z
   .object({
     domain: z.enum(VECTOR_CONFIG.ALLOWED_DOMAINS),
-    subcategory: z.array(z.enum(VECTOR_CONFIG.ALLOWED_SUBCATEGORIES)).default([]),
-    date_start: z.string().datetime({ offset: true }).nullable(),
-    date_end: z.string().datetime({ offset: true }).nullable(),
-    completion_year: z.number().int().min(1900).max(3000).nullable(),
+    subcategory: z
+      .array(z.enum(VECTOR_CONFIG.ALLOWED_SUBCATEGORIES))
+      .default([]),
+    date_start: z.string().datetime({ offset: true }).nullable().optional(),
+    date_end: z.string().datetime({ offset: true }).nullable().optional(),
+    completion_year: z.number().int().min(1900).max(3000).nullable().optional(),
     verified: z.boolean(),
     proficiency_level: z
       .enum(VECTOR_CONFIG.ALLOWED_PROFICIENCY_LEVELS)
@@ -31,7 +33,11 @@ const metadataSchema = z
     organization: z.string().trim().min(1).max(160).nullable(),
     impact_score: z.number().min(0).max(100).nullable(),
     is_active: z.boolean(),
-    external_link: z.string().url().max(512).nullable(),
+    external_link: z.string().url().max(512).nullable().optional(),
+    external_links: z
+      .record(z.string().trim().min(1).max(512))
+      .nullable()
+      .optional(),
   })
   .strict();
 
@@ -101,7 +107,6 @@ function assertSummaryConstraints(document) {
   }
 }
 
-
 function assertDomainEnum(document) {
   const { domain } = document.metadata || {};
   if (!VECTOR_CONFIG.ALLOWED_DOMAINS.includes(domain)) {
@@ -133,11 +138,7 @@ function assertDomainCategoryAlignment(document) {
 }
 
 function assertDateConsistency(document) {
-  const {
-    date_start: dateStart,
-    date_end: dateEnd,
-    completion_year: completionYear,
-  } = document.metadata;
+  const { date_start: dateStart, date_end: dateEnd } = document.metadata;
 
   if (
     dateStart &&
@@ -148,32 +149,50 @@ function assertDateConsistency(document) {
       "metadata.date_start cannot be after metadata.date_end",
     );
   }
-
-  if (
-    dateEnd &&
-    completionYear &&
-    new Date(dateEnd).getUTCFullYear() !== completionYear
-  ) {
-    throw createValidationError(
-      "metadata.completion_year must match metadata.date_end year",
-    );
-  }
 }
 
 function normalizeMetadata(metadata) {
-  return {
+  const normalized = {
     domain: metadata.domain,
-    subcategory: Array.isArray(metadata.subcategory) ? metadata.subcategory : [],
-    date_start: metadata.date_start,
-    date_end: metadata.date_end,
-    completion_year: metadata.completion_year,
+    subcategory: Array.isArray(metadata.subcategory)
+      ? metadata.subcategory
+      : [],
     verified: metadata.verified,
     proficiency_level: metadata.proficiency_level,
     organization: metadata.organization,
     impact_score: metadata.impact_score,
     is_active: metadata.is_active,
-    external_link: metadata.external_link,
   };
+
+  if (Object.prototype.hasOwnProperty.call(metadata, "date_start")) {
+    normalized.date_start = metadata.date_start;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(metadata, "date_end")) {
+    normalized.date_end = metadata.date_end;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(metadata, "completion_year")) {
+    normalized.completion_year = metadata.completion_year;
+  }
+
+  const hasExternalLinksObject =
+    metadata.external_links &&
+    typeof metadata.external_links === "object" &&
+    !Array.isArray(metadata.external_links);
+
+  if (hasExternalLinksObject) {
+    normalized.external_links = metadata.external_links;
+  } else {
+    if (Object.prototype.hasOwnProperty.call(metadata, "external_links")) {
+      normalized.external_links = metadata.external_links;
+    }
+    if (Object.prototype.hasOwnProperty.call(metadata, "external_link")) {
+      normalized.external_link = metadata.external_link;
+    }
+  }
+
+  return normalized;
 }
 
 function normalizeDocument(document) {

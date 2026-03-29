@@ -49,15 +49,11 @@ const swaggerOptions = {
           required: [
             "domain",
             "subcategory",
-            "date_start",
-            "date_end",
-            "completion_year",
             "verified",
             "proficiency_level",
             "organization",
             "impact_score",
             "is_active",
-            "external_link",
           ],
           properties: {
             domain: {
@@ -149,15 +145,23 @@ const swaggerOptions = {
               type: "string",
               format: "date-time",
               nullable: true,
+              description: "Optional.",
               example: "2023-01-01T00:00:00.000Z",
             },
             date_end: {
               type: "string",
               format: "date-time",
               nullable: true,
+              description:
+                "Optional. If omitted/null and date_start is set, treated as ongoing.",
               example: null,
             },
-            completion_year: { type: "integer", nullable: true, example: null },
+            completion_year: {
+              type: "integer",
+              nullable: true,
+              description: "Optional.",
+              example: null,
+            },
             verified: { type: "boolean", example: true },
             proficiency_level: {
               type: "string",
@@ -165,7 +169,11 @@ const swaggerOptions = {
               nullable: true,
               example: "expert",
             },
-            organization: { type: "string", nullable: true, example: "MoonMind" },
+            organization: {
+              type: "string",
+              nullable: true,
+              example: "MoonMind",
+            },
             impact_score: {
               type: "number",
               nullable: true,
@@ -178,13 +186,33 @@ const swaggerOptions = {
               type: "string",
               format: "uri",
               nullable: true,
+              description:
+                "Legacy field; preserved for backward compatibility.",
               example: "https://moonman.in",
+            },
+            external_links: {
+              type: "object",
+              nullable: true,
+              additionalProperties: {
+                type: "string",
+              },
+              example: {
+                portfolio: "https://moonman.in",
+                github: "https://github.com/moonman",
+              },
             },
           },
         },
         VectorDocumentPayload: {
           type: "object",
-          required: ["id", "title", "category", "tags", "content_full", "metadata"],
+          required: [
+            "id",
+            "title",
+            "category",
+            "tags",
+            "content_full",
+            "metadata",
+          ],
           properties: {
             id: {
               type: "string",
