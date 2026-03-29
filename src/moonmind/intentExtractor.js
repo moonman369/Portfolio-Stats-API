@@ -38,9 +38,18 @@ const DOMAIN_RULES = [
   { pattern: /\bexperiences?\b|\bwork\b|\brole\b/i, domain: "experience" },
   { pattern: /\bcertifications?\b|\bcertified\b/i, domain: "certifications" },
   { pattern: /\beducation\b|\bdegree\b|\buniversity\b/i, domain: "education" },
-  { pattern: /\bachievements?\b|\bawards?\b|\branking\b/i, domain: "achievements" },
-  { pattern: /\bresearch\b|\bpaper\b|\bpublication\b|\bnlp\b/i, domain: "research" },
-  { pattern: /\bhobbies?\b|\binterests?\b|\bgaming\b|\bwriting\b/i, domain: "hobbies" },
+  {
+    pattern: /\bachievements?\b|\bawards?\b|\branking\b/i,
+    domain: "achievements",
+  },
+  {
+    pattern: /\bresearch\b|\bpaper\b|\bpublication\b|\bnlp\b/i,
+    domain: "research",
+  },
+  {
+    pattern: /\bhobbies?\b|\binterests?\b|\bgaming\b|\bwriting\b/i,
+    domain: "hobbies",
+  },
 ];
 
 const SUBCATEGORY_RULES = [
@@ -66,6 +75,19 @@ const SUBCATEGORY_RULES = [
   ["technical", /\btechnical\b/i],
   ["learning", /\blearning\b/i],
 ];
+
+const GREETING_ONLY_PATTERN =
+  /^\s*(?:hi|hello|hey|yo|good\s+(?:morning|afternoon|evening))(?:[\s,!.\-]+(?:there|ayan|moonmind|team))?[\s!,.?]*$/i;
+const CASUAL_ONLY_PATTERN =
+  /^\s*(?:how are you|what'?s up|thanks|thank you)[\s!,.?]*$/i;
+const META_ONLY_PATTERN =
+  /^\s*(?:who are you|what can you do|tell me about yourself|what is your role|show (?:the )?system prompt)[\s!,.?]*$/i;
+
+function hasAnyRetrievalStrategy(retrievalPlan = {}) {
+  return Boolean(
+    retrievalPlan.semantic || retrievalPlan.keyword || retrievalPlan.metadata,
+  );
+}
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) {
@@ -99,34 +121,38 @@ function normalizeDateRange(value) {
 
 function inferDeterministicIntentTaxonomy(query) {
   const normalizedQuery = String(query || "").trim();
-  const lower = normalizedQuery.toLowerCase();
 
-  const isGreeting = /^(hi|hello|hey|yo|good\s+(morning|afternoon|evening))\b/.test(lower);
-  const isCasual = /\bhow are you\b|\bwhat'?s up\b|\bthanks\b/.test(lower);
-  const isMeta = /\bwho are you\b|\bwhat can you do\b|\bsystem\b/.test(lower);
+  const isGreetingOnly = GREETING_ONLY_PATTERN.test(normalizedQuery);
+  const isCasualOnly = CASUAL_ONLY_PATTERN.test(normalizedQuery);
+  const isMetaOnly = META_ONLY_PATTERN.test(normalizedQuery);
 
-  const domain = DOMAIN_RULES.find(({ pattern }) => pattern.test(normalizedQuery))?.domain || null;
-  const subcategories = SUBCATEGORY_RULES.filter(([, pattern]) => pattern.test(normalizedQuery)).map(
-    ([subcategory]) => subcategory,
-  );
+  const domain =
+    DOMAIN_RULES.find(({ pattern }) => pattern.test(normalizedQuery))?.domain ||
+    null;
+  const subcategories = SUBCATEGORY_RULES.filter(([, pattern]) =>
+    pattern.test(normalizedQuery),
+  ).map(([subcategory]) => subcategory);
 
-  const requiresRetrieval = !(isGreeting || isCasual || isMeta);
+  const requiresRetrieval = !(isGreetingOnly || isCasualOnly || isMetaOnly);
 
   return {
     domain,
-    subcategories: [...new Set(subcategories)].filter((value) => SUBCATEGORY_SET.has(value)),
+    subcategories: [...new Set(subcategories)].filter((value) =>
+      SUBCATEGORY_SET.has(value),
+    ),
     requires_retrieval: requiresRetrieval,
   };
 }
 
 function normalizeIntentTaxonomy(payload) {
-  const domainCandidate = typeof payload?.domain === "string" ? payload.domain.trim() : null;
+  const domainCandidate =
+    typeof payload?.domain === "string" ? payload.domain.trim() : null;
   const domain = VECTOR_CONFIG.ALLOWED_DOMAINS.includes(domainCandidate)
     ? domainCandidate
     : null;
 
-  const subcategories = normalizeStringArray(payload?.subcategories).filter((value) =>
-    SUBCATEGORY_SET.has(value),
+  const subcategories = normalizeStringArray(payload?.subcategories).filter(
+    (value) => SUBCATEGORY_SET.has(value),
   );
 
   const requiresRetrieval =
@@ -179,11 +205,10 @@ function normalizeIntentPayload(payload) {
   };
 
   if (
-    !normalized.retrieval_plan.semantic &&
-    !normalized.retrieval_plan.keyword &&
-    !normalized.retrieval_plan.metadata
+    normalized.requires_retrieval &&
+    !hasAnyRetrievalStrategy(normalized.retrieval_plan)
   ) {
-    normalized.retrieval_plan.semantic = normalized.intent === "question";
+    normalized.retrieval_plan.semantic = true;
   }
 
   if (!normalized.requires_retrieval) {
@@ -206,6 +231,8 @@ function buildIntentMessages(query) {
         "Intent must be exactly one of: question, greeting, chat.",
         "retrieval_plan must always be explicit with boolean semantic, keyword, and metadata fields.",
         "If unsure, set retrieval_plan.semantic to true.",
+        "Set requires_retrieval false only for greeting-only/casual-only/meta-only messages with no portfolio question.",
+        "If greeting words appear with an actual question/request, requires_retrieval must be true.",
         "entities fields must always exist.",
         "filters fields must always exist.",
       ].join(" "),
@@ -298,14 +325,27 @@ async function extractIntent({ query, requestId, sessionId }) {
     normalized.subcategories = taxonomy.subcategories;
     normalized.requires_retrieval = taxonomy.requires_retrieval;
 
+    if (
+      normalized.requires_retrieval &&
+      !hasAnyRetrievalStrategy(normalized.retrieval_plan)
+    ) {
+      normalized.retrieval_plan.semantic = true;
+    }
+
     if (!normalized.requires_retrieval) {
       normalized.retrieval_plan.semantic = false;
       normalized.retrieval_plan.keyword = false;
       normalized.retrieval_plan.metadata = false;
     }
 
-    if (normalized.domain && !normalized.filters.domain.includes(normalized.domain)) {
-      normalized.filters.domain = [...normalized.filters.domain, normalized.domain];
+    if (
+      normalized.domain &&
+      !normalized.filters.domain.includes(normalized.domain)
+    ) {
+      normalized.filters.domain = [
+        ...normalized.filters.domain,
+        normalized.domain,
+      ];
     }
 
     debugLog("moonmind.intent.classification", {
