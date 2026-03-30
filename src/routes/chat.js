@@ -2,6 +2,9 @@ const express = require("express");
 const { runMoonMind } = require("../moonmind");
 const { MoonMindError } = require("../moonmind/utils/errors");
 const { debugLog, serializeError } = require("../moonmind/utils/debug");
+const {
+  requireMoonMindPassword,
+} = require("../middleware/moonmindPasswordAuth");
 
 const router = express.Router();
 
@@ -33,7 +36,7 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post("/", async (req, res) => {
+router.post("/", requireMoonMindPassword, async (req, res) => {
   debugLog("chat.route.request.received", {
     hasPrompt: typeof req.body?.prompt === "string",
     sessionId: req.body?.sessionId ?? null,

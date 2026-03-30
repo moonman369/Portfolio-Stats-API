@@ -3,12 +3,15 @@ const { runMoonMind } = require("../moonmind");
 const { MoonMindError } = require("../moonmind/utils/errors");
 const { debugLog, serializeError } = require("../moonmind/utils/debug");
 const moonmindMemoryRoutes = require("../../routes/moonmindMemoryRoutes");
+const {
+  requireMoonMindPassword,
+} = require("../middleware/moonmindPasswordAuth");
 
 const router = express.Router();
 
 router.use(moonmindMemoryRoutes);
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", requireMoonMindPassword, async (req, res) => {
   debugLog("moonmind.route.request", {
     hasPrompt: typeof req.body?.prompt === "string",
     sessionId: req.body?.sessionId ?? null,

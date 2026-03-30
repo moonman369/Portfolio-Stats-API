@@ -94,6 +94,22 @@ test("normalizeIntentPayload preserves extended taxonomy fields", () => {
   assert.equal(normalized.requires_retrieval, true);
 });
 
+test("validateCreatePayload accepts profile category with profile domain", () => {
+  const validated = validateCreatePayload(
+    createValidPayload({
+      category: "profile",
+      metadata: {
+        ...createValidPayload().metadata,
+        domain: "profile",
+        subcategory: ["technical"],
+      },
+    }),
+  );
+
+  assert.equal(validated.category, "profile");
+  assert.equal(validated.metadata.domain, "profile");
+});
+
 test("inferDeterministicIntentTaxonomy disables retrieval for greetings", () => {
   const taxonomy = inferDeterministicIntentTaxonomy("hello there");
   assert.equal(taxonomy.requires_retrieval, false);
@@ -107,6 +123,14 @@ test("inferDeterministicIntentTaxonomy keeps retrieval for greeting-prefixed cer
   );
   assert.equal(taxonomy.requires_retrieval, true);
   assert.equal(taxonomy.domain, "certifications");
+});
+
+test("inferDeterministicIntentTaxonomy maps profile summary prompts to profile domain", () => {
+  const taxonomy = inferDeterministicIntentTaxonomy(
+    "Give me an overall profile summary",
+  );
+  assert.equal(taxonomy.requires_retrieval, true);
+  assert.equal(taxonomy.domain, "profile");
 });
 
 test("normalizeIntentPayload forces semantic retrieval when required and strategy is empty", () => {

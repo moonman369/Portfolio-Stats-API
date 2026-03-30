@@ -151,3 +151,8 @@ test('Summarize skills and experience normalizes to action.summarize_aspect', ()
   assert.equal(normalized.modifiers.is_ambiguous, false);
   assert.equal(normalized.is_in_scope, true);
 });
+
+test('Summarize my profile infers profile domain', () => {
+  const domains = inferPortfolioSummaryDomains('Summarize my profile');
+  assert.deepEqual(domains, ['profile']);
+});

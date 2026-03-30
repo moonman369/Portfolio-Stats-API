@@ -6,8 +6,12 @@ const {
   updateDocument,
   deleteDocument,
 } = require("../services/vectorMemoryService");
+const {
+  requireMoonMindPassword,
+} = require("../src/middleware/moonmindPasswordAuth");
 
 const router = express.Router();
+router.use(requireMoonMindPassword);
 
 function omitEmbedding(document) {
   if (!document || typeof document !== "object") {
@@ -24,7 +28,10 @@ function createValidationError(message) {
 }
 
 function isDuplicateKeyError(error) {
-  return error?.code === 11000 || /E11000 duplicate key error/i.test(error?.message || "");
+  return (
+    error?.code === 11000 ||
+    /E11000 duplicate key error/i.test(error?.message || "")
+  );
 }
 
 function serializeRouteError(error) {
@@ -159,11 +166,15 @@ router.post("/createDoc", async (req, res) => {
 router.post("/bulkCreateDoc", async (req, res) => {
   try {
     if (!Array.isArray(req.body)) {
-      throw createValidationError("Request body must be an array of document payloads");
+      throw createValidationError(
+        "Request body must be an array of document payloads",
+      );
     }
 
     if (req.body.length === 0) {
-      throw createValidationError("Request body array must contain at least one document payload");
+      throw createValidationError(
+        "Request body array must contain at least one document payload",
+      );
     }
 
     const created = [];
