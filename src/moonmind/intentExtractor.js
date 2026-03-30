@@ -311,6 +311,10 @@ async function extractIntent({ query, requestId, sessionId }) {
   if (!content) {
     throw new Error("MoonMind intent extractor returned empty content");
   }
+  debugLog("moonmind.intent.raw_response", {
+    requestId,
+    content,
+  });
 
   try {
     const parsed = JSON.parse(content);
