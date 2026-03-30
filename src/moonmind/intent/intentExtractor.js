@@ -263,6 +263,10 @@ async function extractIntent({ prompt, requestId, sessionId }) {
   if (!content) {
     throw new Error("Intent model returned empty response");
   }
+  debugLog("extractIntent.raw_response", {
+    requestId,
+    content,
+  });
 
   try {
     const parsed = JSON.parse(content);

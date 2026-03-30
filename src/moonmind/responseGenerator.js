@@ -16,6 +16,7 @@ function buildMessages({ query, documents, intent }) {
     "- If no useful documents are provided, do NOT return a generic refusal.",
     "- When no documents are found, still answer the user's actual query in a helpful concise way and include a clear note that MoonMind has no matching supporting documents right now.",
     "- If the user message is greeting-only, return a friendly greeting and offer portfolio help.",
+    `- If the user message is time based use today's date as a reference to calculate duration: ${Date.now()}`,
     "FORMAT RULES:",
     "- Use clean markdown.",
     "- Use bullet points or numbered lists where appropriate.",
