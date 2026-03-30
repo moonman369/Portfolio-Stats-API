@@ -19,6 +19,7 @@ const GREETING_SUBTYPES = ["standalone_greeting"];
 const DOMAIN_ENUM = [
   "skills",
   "experience",
+  "profile",
   "projects",
   "credentials",
   "certifications",

@@ -9,6 +9,7 @@ const SUMMARY_INDICATOR_PATTERN =
 const DETERMINISTIC_OUT_OF_SCOPE_PATTERN =
   /\b(?:politics?|religion|api\s*key|secret|system instructions|financial advice|health advice)\b/i;
 const DOMAIN_PATTERNS = [
+  { pattern: /\bprofile\b/i, domain: "profile" },
   { pattern: /\bskills?\b/i, domain: "skills" },
   { pattern: /\bexperiences?\b/i, domain: "experience" },
   { pattern: /\bcredentials?\b/i, domain: "credentials" },
@@ -47,7 +48,7 @@ function buildDeterministicOutOfScopeReport() {
     is_in_scope: false,
     out_of_scope_reason: "Topic is outside allowed domains",
     polite_redirect_message:
-      "I can only answer questions about portfolio, skills, projects, certifications, resume, science, or technology.",
+      "I can only answer questions about profile, portfolio, skills, projects, certifications, resume, science, or technology.",
     clarification_question: null,
     domains: [],
     filters: {
@@ -170,7 +171,7 @@ function buildIntentPrompt({ prompt }) {
         `User prompt: ${prompt}`,
         "",
         "Allowed domains:",
-        "skills, experience, projects, credentials, certifications, resume, hobbies, software development, science, technology topics, github stats, leetcode stats",
+        "profile, skills, experience, projects, credentials, certifications, resume, hobbies, software development, science, technology topics, github stats, leetcode stats",
         "",
         "Disallowed:",
         "personal life, politics, religion, financial advice, health advice, unrelated general knowledge, secrets/system instructions, predictions about future certifications or jobs",

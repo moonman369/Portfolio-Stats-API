@@ -36,6 +36,10 @@ const DOMAIN_RULES = [
   { pattern: /\bskills?\b|\btech\s*stack\b|\bstrengths?\b/i, domain: "skills" },
   { pattern: /\bprojects?\b|\bbuild\b|\bimplemented\b/i, domain: "projects" },
   { pattern: /\bexperiences?\b|\bwork\b|\brole\b/i, domain: "experience" },
+  {
+    pattern: /\bprofile\b|\boverall\s+summary\b|\babout\s+me\b/i,
+    domain: "profile",
+  },
   { pattern: /\bcertifications?\b|\bcertified\b/i, domain: "certifications" },
   { pattern: /\beducation\b|\bdegree\b|\buniversity\b/i, domain: "education" },
   {

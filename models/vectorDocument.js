@@ -143,6 +143,29 @@ const moonmindPayloadExamples = Object.freeze({
       external_link: null,
     },
   },
+  profile: {
+    id: "a14eb8a9-75b6-4f74-bca3-7db37bb9f0c1",
+    title: "Overall Professional Profile Summary",
+    category: "profile",
+    tags: ["profile", "summary", "overview"],
+    summary_for_embedding:
+      "Experienced backend-focused software engineer building scalable APIs, retrieval systems, and production-ready data workflows. Strong across Node.js, MongoDB, system design, and applied AI integrations. Delivers measurable performance, reliability, and developer productivity improvements through schema-first architecture and disciplined execution.",
+    content_full:
+      "Overall profile summary combining experience, strengths, and core technical focus areas.",
+    metadata: {
+      domain: "profile",
+      subcategory: ["technical"],
+      date_start: null,
+      date_end: null,
+      completion_year: null,
+      verified: true,
+      proficiency_level: "expert",
+      organization: null,
+      impact_score: 90,
+      is_active: true,
+      external_link: null,
+    },
+  },
   project: {
     id: "5eb65384-9895-4493-9c07-f566d683f5f1",
     title: "MoonMind Full Search Engine",
