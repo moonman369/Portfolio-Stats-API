@@ -4,7 +4,7 @@ const { sanitizeDocumentsForLLM } = require("./documentSanitizer");
 
 const RESPONSE_MODEL = process.env.MOONMIND_RESPONSE_MODEL || "gpt-4o-mini";
 
-function buildMessages({ query, documents, intent }) {
+function buildMessages({ query, documents, intent, statsPayload }) {
   const systemPrompt = [
     "You are a professional AI assistant representing Ayan (also known as Moonman, Moonman369, MightyAyan, Mr. Maiti, Ayan Maiti).",
     "Your job is to generate clear, polished, human-friendly responses using only the provided documents.",
@@ -17,6 +17,7 @@ function buildMessages({ query, documents, intent }) {
     "- When no documents are found, still answer the user's actual query in a helpful concise way and include a clear note that MoonMind has no matching supporting documents right now.",
     "- If the user message is greeting-only, return a friendly greeting and offer portfolio help.",
     `- If the user message is time based use today's date as a reference to calculate duration: ${Date.now()}`,
+    "- If stats_payload is present, use only stats_payload.data as the source of truth and present clean insights without adding missing fields.",
     "FORMAT RULES:",
     "- Use clean markdown.",
     "- Use bullet points or numbered lists where appropriate.",
@@ -29,7 +30,9 @@ function buildMessages({ query, documents, intent }) {
   const payload = {
     query,
     documents,
-    no_documents_found: !Array.isArray(documents) || documents.length === 0,
+    stats_payload: statsPayload || null,
+    no_documents_found:
+      (!Array.isArray(documents) || documents.length === 0) && !statsPayload,
   };
 
   return [
@@ -44,10 +47,11 @@ function buildMessages({ query, documents, intent }) {
   ];
 }
 
-async function generateResponse({ query, documents, intent }) {
+async function generateResponse({ query, documents, intent, statsPayload = null }) {
   debugLog("moonmind.response.start", {
     intent,
     documentCount: Array.isArray(documents) ? documents.length : 0,
+    hasStatsPayload: Boolean(statsPayload),
   });
 
   debugLog("moonmind.response.sanitization.before", {
@@ -66,6 +70,7 @@ async function generateResponse({ query, documents, intent }) {
     query,
     documents: sanitizedDocuments,
     intent,
+    statsPayload,
   });
 
   debugLog("moonmind.response.prompt", {
@@ -88,6 +93,7 @@ async function generateResponse({ query, documents, intent }) {
   debugLog("moonmind.response.complete", {
     intent,
     documentCount: documents.length,
+    hasStatsPayload: Boolean(statsPayload),
   });
 
   return summary;
