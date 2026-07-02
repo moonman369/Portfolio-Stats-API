@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getStats } = require("../../mongo");
+const { getGithubStats } = require("../moonmind/statsService");
 
 /**
  * @swagger
@@ -19,7 +19,7 @@ const { getStats } = require("../../mongo");
  */
 router.get("/", async (req, resp) => {
   try {
-    const stats = await getStats();
+    const stats = await getGithubStats();
     resp.status(200).json(stats);
   } catch (e) {
     console.error("github.route.error", {

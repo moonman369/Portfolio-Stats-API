@@ -5,6 +5,8 @@ const { rankDocuments } = require("./ranker");
 const { generateResponse } = require("./responseGenerator");
 const { MoonMindError } = require("./utils/errors");
 const { debugLog, serializeError } = require("./utils/debug");
+const { detectStatsQuery } = require("./statsRouter");
+const { getGithubStats, getLeetcodeStats } = require("./statsService");
 
 function buildResponseDocuments(documents = []) {
   if (!Array.isArray(documents)) {
@@ -41,6 +43,65 @@ async function runMoonMindPipeline({ query, sessionId, metadata = {} }) {
   });
 
   try {
+    const statsRoute = detectStatsQuery(trimmedQuery);
+
+    if (statsRoute.isGithub || statsRoute.isLeetcode) {
+      const statsType = statsRoute.isGithub ? "github_stats" : "leetcode_stats";
+      debugLog("moonmind.pipeline.stats_route.triggered", {
+        requestId,
+        statsType,
+      });
+
+      try {
+        const statsData = statsRoute.isGithub
+          ? await getGithubStats()
+          : await getLeetcodeStats();
+
+        debugLog("moonmind.pipeline.stats_route.fetch_success", {
+          requestId,
+          statsType,
+        });
+
+        debugLog("moonmind.pipeline.final_response_trigger", {
+          requestId,
+          documentCount: 0,
+          statsType,
+        });
+
+        const summary = await generateResponse({
+          query: trimmedQuery,
+          documents: [],
+          intent: "stats_query",
+          statsPayload: {
+            type: statsType,
+            data: statsData,
+          },
+        });
+
+        return {
+          status: "success",
+          data: {
+            summary,
+            documents: [],
+          },
+        };
+      } catch (statsError) {
+        debugLog("moonmind.pipeline.stats_route.fetch_failure", {
+          requestId,
+          statsType,
+          error: serializeError(statsError),
+        });
+
+        return {
+          status: "success",
+          data: {
+            summary: "Unable to fetch stats at the moment",
+            documents: [],
+          },
+        };
+      }
+    }
+
     const intentPayload = await extractIntent({
       query: trimmedQuery,
       requestId,

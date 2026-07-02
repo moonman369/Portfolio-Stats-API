@@ -1,0 +1,23 @@
+node_modules
+npm-debug.log*
+
+# Secrets — never copy the live .env into the build context.
+# Keep the committed template available for reference.
+.env
+.env.*
+!.env.example
+
+# VCS / tooling
+.git
+.gitignore
+.vercel
+.claude
+.vscode
+.idea
+.DS_Store
+
+# Docs and Docker artifacts don't belong in the image
+docs/
+Dockerfile
+.dockerignore
+docker-compose.yml

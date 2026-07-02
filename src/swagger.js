@@ -227,6 +227,7 @@ const swaggerOptions = {
                 "skill",
                 "certification",
                 "credential",
+                "education",
                 "experience",
                 "profile",
                 "project",
