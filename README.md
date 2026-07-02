@@ -138,6 +138,50 @@ If deploying elsewhere, ensure:
 - Your platform supports Node.js serverless functions or a long-running server.
 - The cron (or equivalent) calls the refresh endpoint with the correct secret.
 
+### Deploying with Docker on a VM (e.g. Oracle Cloud)
+
+The app also ships as a container for running on a plain VM. MongoDB stays external
+(Atlas is required — the MoonMind RAG subsystem uses `$vectorSearch`), so the
+container only runs the Node app.
+
+Files: `Dockerfile` (multi-stage, non-root, `node:22-alpine`), `docker-compose.yml`,
+`.dockerignore`, and `.env.example` (template for all supported env vars).
+
+1. Install Docker Engine + Compose plugin on the VM:
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   sudo usermod -aG docker $USER   # re-login to apply
+   ```
+2. Clone the repo and create a real `.env` on the VM (never commit it):
+   ```bash
+   cp .env.example .env
+   nano .env            # fill in real secrets
+   chmod 600 .env
+   ```
+3. Build and run:
+   ```bash
+   docker compose up -d --build
+   ```
+4. Verify: `docker compose ps` (should show `healthy`), then
+   `curl http://localhost:8000/health`.
+5. Redeploy after changes: `git pull && docker compose up -d --build`.
+
+**Firewall — both layers must allow inbound TCP/8000**, or the app is unreachable
+despite the container running:
+- OCI VCN Security List / NSG (cloud-level, in the OCI console).
+- The VM's own `iptables`/`firewalld` (OS-level — Oracle images ship restrictive
+  defaults), e.g. `sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT` and persist.
+
+Also ensure the MongoDB Atlas Network Access list allows the VM's public egress IP.
+
+**Daily refresh (replaces the Vercel cron):** add a host crontab entry on the VM:
+```cron
+0 0 * * * curl -fsS "http://localhost:8000/api/v1/refresh?secret=YOUR_REFRESH_SECRET" >> /var/log/portfolio-refresh.log 2>&1
+```
+
+TLS/reverse proxy (Caddy/nginx) is not included; the container serves plain HTTP
+on port 8000. Add a proxy in front once a domain is pointed at the VM.
+
 ## Security notes
 - Do not expose `GITHUB_PAT` or `REFRESH_SECRET`.
 - Restrict the refresh endpoint to internal usage only.
