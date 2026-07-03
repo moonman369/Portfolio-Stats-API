@@ -3,8 +3,9 @@ const { vectorSearch } = require("./retrieval/vectorSearch");
 const { debugLog } = require("./utils/debug");
 const VECTOR_CONFIG = require("../../config/vectorConfig");
 
-const VECTOR_COLLECTION =
-  process.env.MOONMIND_VECTOR_COLLECTION || "moonmind_documents";
+// Use the same collection the write path (vectorMemoryService) persists to,
+// so read and write can never diverge on the default.
+const VECTOR_COLLECTION = VECTOR_CONFIG.DOCUMENT_COLLECTION;
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -182,6 +183,7 @@ function buildKeywordQuery(query, intentPayload) {
 
 async function runMongoQuery(query, limit) {
   if (!query || Object.keys(query).length === 0) {
+    debugLog("moonmind.retrieval.mongo.skipped", { reason: "empty_query" });
     return [];
   }
 
@@ -268,10 +270,13 @@ async function retrieveDocuments({
 
   if (retrievalPlan.semantic) {
     tasks.push(
-      vectorSearch(query, Math.max(limit, 10)).then((documents) => ({
-        source: "semantic",
-        documents,
-      })),
+      vectorSearch(query, Math.max(limit, 10)).then((documents) => {
+        debugLog("moonmind.retrieval.strategy.result", {
+          source: "semantic",
+          count: documents.length,
+        });
+        return { source: "semantic", documents };
+      }),
     );
   }
 
@@ -280,10 +285,13 @@ async function retrieveDocuments({
       runMongoQuery(
         buildKeywordQuery(query, intentPayload),
         Math.max(limit, 10),
-      ).then((documents) => ({
-        source: "keyword",
-        documents,
-      })),
+      ).then((documents) => {
+        debugLog("moonmind.retrieval.strategy.result", {
+          source: "keyword",
+          count: documents.length,
+        });
+        return { source: "keyword", documents };
+      }),
     );
   }
 
@@ -292,10 +300,13 @@ async function retrieveDocuments({
       runMongoQuery(
         buildMetadataQuery(intentPayload, metadata),
         Math.max(limit, 10),
-      ).then((documents) => ({
-        source: "metadata",
-        documents,
-      })),
+      ).then((documents) => {
+        debugLog("moonmind.retrieval.strategy.result", {
+          source: "metadata",
+          count: documents.length,
+        });
+        return { source: "metadata", documents };
+      }),
     );
   }
 
@@ -305,6 +316,10 @@ async function retrieveDocuments({
   debugLog("moonmind.retrieval.complete", {
     query,
     selectedStrategies,
+    perStrategyCounts: settled.map(({ source, documents: docs }) => ({
+      source,
+      count: docs.length,
+    })),
     resultsCount: documents.length,
   });
 

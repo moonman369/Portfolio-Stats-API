@@ -1,3 +1,5 @@
+const { debugLog } = require("./utils/debug");
+
 function clampScore(value) {
   if (!Number.isFinite(value)) {
     return 0;
@@ -15,7 +17,7 @@ function clampScore(value) {
 }
 
 function rankDocuments(documents = [], limit = 5) {
-  return [...documents]
+  const ranked = [...documents]
     .map((document) => {
       const semanticScore = clampScore(document.semantic_score ?? 0);
       const keywordScore = clampScore(document.keyword_match ?? 0);
@@ -40,6 +42,20 @@ function rankDocuments(documents = [], limit = 5) {
       return String(left.id).localeCompare(String(right.id));
     })
     .slice(0, limit);
+
+  debugLog("moonmind.ranker.scored", {
+    inputCount: documents.length,
+    returnedCount: ranked.length,
+    ranked: ranked.map((document) => ({
+      id: document.id,
+      score: document.score,
+      semantic: clampScore(document.semantic_score ?? 0),
+      keyword: clampScore(document.keyword_match ?? 0),
+      metadata: clampScore(document.metadata_match ?? 0),
+    })),
+  });
+
+  return ranked;
 }
 
 module.exports = {

@@ -6,6 +6,9 @@ services:
     container_name: portfolio-stats-api
     env_file:
       - ./.env
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       # Bind to loopback only: Nginx reverse-proxies to localhost on this port,
       # so the app is never exposed publicly and no VM firewall rule is needed.
