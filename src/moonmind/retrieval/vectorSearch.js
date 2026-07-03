@@ -1,13 +1,15 @@
 const { connectToDatabase } = require("../../../mongo");
 const { createEmbedding } = require("../adapters/openaiClient");
 const { debugLog, serializeError } = require("../utils/debug");
+const VECTOR_CONFIG = require("../../../config/vectorConfig");
 
-const EMBEDDING_MODEL =
-  process.env.MOONMIND_EMBEDDING_MODEL || "text-embedding-3-small";
-const VECTOR_COLLECTION =
-  process.env.MOONMIND_VECTOR_COLLECTION || "moonmind_documents";
+// Resolve from the shared VECTOR_CONFIG so the read path stays aligned with the
+// write path (same collection, index and embedding model). MOONMIND_VECTOR_INDEX
+// is still honored as a fallback for the older env-var name.
+const EMBEDDING_MODEL = VECTOR_CONFIG.EMBEDDING_MODEL;
+const VECTOR_COLLECTION = VECTOR_CONFIG.DOCUMENT_COLLECTION;
 const VECTOR_INDEX =
-  process.env.MOONMIND_VECTOR_INDEX || "moonmind_vector_index";
+  process.env.MOONMIND_VECTOR_INDEX || VECTOR_CONFIG.VECTOR_INDEX_NAME;
 const VECTOR_FIELD = process.env.MOONMIND_VECTOR_FIELD || "embedding";
 
 async function embedQuery(query) {
