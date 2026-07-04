@@ -25,6 +25,24 @@ function parseBooleanFlag(value, fallback = true) {
   return fallback;
 }
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function parseUnitFloat(value, fallback) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 const SUMMARY_MIN_SENTENCES = parseSentenceBound(
   process.env.MOONMIND_SUMMARY_MIN_SENTENCES,
   3,
@@ -52,6 +70,36 @@ const VECTOR_CONFIG = Object.freeze({
   SUMMARY_MIN_SENTENCES,
   SUMMARY_MAX_SENTENCES,
   ENFORCE_SUMMARY_SENTENCE_RANGE,
+  // --- Retrieval tuning ---------------------------------------------------
+  // How many ANN candidates the $vectorSearch stage scans before applying the
+  // limit. Higher = better recall, slightly more latency. Only affects recall,
+  // never correctness, so it is safe to raise.
+  VECTOR_NUM_CANDIDATES: parsePositiveInt(
+    process.env.MOONMIND_VECTOR_NUM_CANDIDATES,
+    150,
+  ),
+  // Reciprocal Rank Fusion constant. Standard default is 60; larger values
+  // flatten the contribution of top ranks across arms.
+  RRF_K: parsePositiveInt(process.env.MOONMIND_RRF_K, 60),
+  // Minimum raw Atlas cosine vectorSearchScore ((1+cos)/2, in [0,1]) a document
+  // must reach to survive ranking. 0 disables the gate (default, no behaviour
+  // change) so it can be calibrated against the eval harness before enabling.
+  MIN_SEMANTIC_SCORE: parseUnitFloat(process.env.MOONMIND_MIN_SEMANTIC_SCORE, 0),
+  // Feature flags for the heavier read-path stages. Default off so latency/cost
+  // stay unchanged until deliberately enabled.
+  RERANK_ENABLED: parseBooleanFlag(process.env.MOONMIND_RERANK_ENABLED, false),
+  RERANK_CANDIDATES: parsePositiveInt(
+    process.env.MOONMIND_RERANK_CANDIDATES,
+    20,
+  ),
+  DECOMPOSE_ENABLED: parseBooleanFlag(
+    process.env.MOONMIND_DECOMPOSE_ENABLED,
+    false,
+  ),
+  DECOMPOSE_MAX_SUBQUERIES: parsePositiveInt(
+    process.env.MOONMIND_DECOMPOSE_MAX_SUBQUERIES,
+    3,
+  ),
   ALLOWED_CATEGORIES: [
     "skill",
     "certification",

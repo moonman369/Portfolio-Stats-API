@@ -1,0 +1,29 @@
+[
+  {
+    "_comment": "TEMPLATE — replace expected_ids with real document ids from your moonmindVectorMemory collection. Cover the four categories below: single-domain, multi-part, content_full-only answers, and should-return-nothing.",
+
+    "query": "What backend technologies does Ayan work with?",
+    "expected_ids": ["REPLACE_WITH_REAL_SKILL_DOC_ID"]
+  },
+  {
+    "query": "Tell me about Ayan's projects",
+    "expected_ids": ["REPLACE_WITH_REAL_PROJECT_DOC_ID"]
+  },
+  {
+    "query": "What certifications does Ayan hold?",
+    "expected_ids": ["REPLACE_WITH_REAL_CERT_DOC_ID"]
+  },
+  {
+    "query": "my github stats and my projects",
+    "expected_ids": ["REPLACE_WITH_REAL_PROJECT_DOC_ID"]
+  },
+  {
+    "query": "Which project involved low-latency or high-performance work?",
+    "expected_ids": ["REPLACE_WITH_DOC_WHOSE_DETAIL_LIVES_IN_content_full"]
+  },
+  {
+    "query": "What is Ayan's favourite pizza topping?",
+    "expected_ids": [],
+    "expect_empty": true
+  }
+]

@@ -24,6 +24,27 @@ function generateDeterministicSummary(document) {
   ].join(" ");
 }
 
+// Build the text that is actually embedded. Previously only
+// `summary_for_embedding` was vectorized — and when auto-generated that is
+// metadata boilerplate, so vectors encoded structure rather than substance.
+// We now embed title + tags + the real `content_full` when it exists, falling
+// back to the summary. The human-facing `summary_for_embedding` field is left
+// untouched for display.
+function buildEmbeddingInput(document = {}) {
+  const title = typeof document.title === "string" ? document.title.trim() : "";
+  const tags = Array.isArray(document.tags)
+    ? document.tags.filter((tag) => typeof tag === "string" && tag.trim())
+    : [];
+  const content =
+    typeof document.content_full === "string" && document.content_full.trim()
+      ? document.content_full.trim()
+      : document.summary_for_embedding || "";
+
+  return [title, tags.length ? `Tags: ${tags.join(", ")}` : "", content]
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function generateEmbeddingVector(summaryText) {
   const response = await createEmbedding({
     model: VECTOR_CONFIG.EMBEDDING_MODEL,
@@ -42,5 +63,6 @@ async function generateEmbeddingVector(summaryText) {
 
 module.exports = {
   generateDeterministicSummary,
+  buildEmbeddingInput,
   generateEmbeddingVector,
 };
