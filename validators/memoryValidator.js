@@ -96,6 +96,19 @@ function assertSummaryConstraints(document) {
   if (!document.summary_for_embedding) {
     return;
   }
+
+  // The sentence-range guard exists to keep the *embedded* text substantial.
+  // Retrieval now embeds content_full when present (utils/embeddingGenerator.js
+  // buildEmbeddingInput), so summary_for_embedding is only the embedding source
+  // when content_full is empty. When content_full is provided the summary is a
+  // display-only field, so we don't constrain its shape.
+  const hasContentFull =
+    typeof document.content_full === "string" &&
+    document.content_full.trim().length > 0;
+  if (hasContentFull) {
+    return;
+  }
+
   const sentenceCount = countSentences(document.summary_for_embedding);
   if (
     sentenceCount < VECTOR_CONFIG.SUMMARY_MIN_SENTENCES ||

@@ -10,6 +10,7 @@ const {
 } = require("../validators/memoryValidator");
 const {
   generateDeterministicSummary,
+  buildEmbeddingInput,
   generateEmbeddingVector,
 } = require("../utils/embeddingGenerator");
 
@@ -127,7 +128,9 @@ async function createDocument(payload) {
     summary_for_embedding: summary,
   };
 
-  const embedding = await generateEmbeddingVector(documentToPersist.summary_for_embedding);
+  const embedding = await generateEmbeddingVector(
+    buildEmbeddingInput(documentToPersist),
+  );
 
   const { client, db } = await connectToDatabase({ apiStrict: false });
   const session = client.startSession();
@@ -178,11 +181,13 @@ async function updateDocument(payload) {
     summary_for_embedding: summary,
   };
 
-  const summaryChanged =
-    existing.summary_for_embedding !== normalizedUpdate.summary_for_embedding;
+  // Re-embed whenever any input to the embedding text changes (title, tags,
+  // content_full or summary), not just the summary field.
+  const embeddingInputChanged =
+    buildEmbeddingInput(existing) !== buildEmbeddingInput(normalizedUpdate);
 
-  const embedding = summaryChanged
-    ? await generateEmbeddingVector(normalizedUpdate.summary_for_embedding)
+  const embedding = embeddingInputChanged
+    ? await generateEmbeddingVector(buildEmbeddingInput(normalizedUpdate))
     : existing.embedding;
 
   const updatedDoc = {

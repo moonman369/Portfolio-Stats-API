@@ -1,7 +1,16 @@
 const { connectToDatabase } = require("../../mongo");
 const { vectorSearch } = require("./retrieval/vectorSearch");
+const { fuseByRRF } = require("./ranking/rrf");
 const { debugLog } = require("./utils/debug");
 const VECTOR_CONFIG = require("../../config/vectorConfig");
+
+// Per-arm weights for RRF. The metadata arm is a broad filter match rather than
+// a relevance ranking, so it contributes at a reduced weight.
+const RRF_WEIGHTS = Object.freeze({
+  semantic: 1,
+  keyword: 1,
+  metadata: 0.5,
+});
 
 // Use the same collection the write path (vectorMemoryService) persists to,
 // so read and write can never diverge on the default.
@@ -209,47 +218,6 @@ async function runMongoQuery(query, limit) {
   return results.map(normalizeDocument);
 }
 
-function mergeDocuments(resultSets) {
-  const merged = new Map();
-
-  resultSets.forEach(({ source, documents }) => {
-    documents.forEach((document, index) => {
-      const id = String(document.id);
-      const existing = merged.get(id) || {
-        ...normalizeDocument(document),
-        semantic_score: 0,
-        keyword_match: 0,
-        metadata_match: 0,
-      };
-
-      if (source === "semantic") {
-        existing.semantic_score = Math.max(
-          existing.semantic_score,
-          Number(document.score) || Math.max(0, 1 - index * 0.1),
-        );
-      }
-
-      if (source === "keyword") {
-        existing.keyword_match = Math.max(
-          existing.keyword_match,
-          Math.max(0.2, 1 - index * 0.1),
-        );
-      }
-
-      if (source === "metadata") {
-        existing.metadata_match = Math.max(
-          existing.metadata_match,
-          Math.max(0.3, 1 - index * 0.1),
-        );
-      }
-
-      merged.set(id, existing);
-    });
-  });
-
-  return Array.from(merged.values());
-}
-
 async function retrieveDocuments({
   query,
   intentPayload,
@@ -270,7 +238,13 @@ async function retrieveDocuments({
 
   if (retrievalPlan.semantic) {
     tasks.push(
-      vectorSearch(query, Math.max(limit, 10)).then((documents) => {
+      vectorSearch(query, Math.max(limit, 10)).then((rawDocuments) => {
+        // Normalize like the other arms, but preserve the raw Atlas score so
+        // RRF can carry semantic_score through for the threshold gate.
+        const documents = rawDocuments.map((document) => ({
+          ...normalizeDocument(document),
+          score: Number(document.score),
+        }));
         debugLog("moonmind.retrieval.strategy.result", {
           source: "semantic",
           count: documents.length,
@@ -311,7 +285,10 @@ async function retrieveDocuments({
   }
 
   const settled = await Promise.all(tasks);
-  const documents = mergeDocuments(settled);
+  const documents = fuseByRRF(settled, {
+    k: VECTOR_CONFIG.RRF_K,
+    weights: RRF_WEIGHTS,
+  });
 
   debugLog("moonmind.retrieval.complete", {
     query,

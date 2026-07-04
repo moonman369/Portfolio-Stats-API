@@ -47,7 +47,7 @@ async function vectorSearch(query, limit = 5) {
           index: VECTOR_INDEX,
           queryVector: embedding,
           path: VECTOR_FIELD,
-          numCandidates: Math.max(limit * 5, 25),
+          numCandidates: Math.max(limit * 5, VECTOR_CONFIG.VECTOR_NUM_CANDIDATES),
           limit,
         },
       },
