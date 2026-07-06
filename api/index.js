@@ -27,7 +27,9 @@ app.use(
     origin: [
       "https://devfoliomoonman369.netlify.app",
       "https://moonman.in",
+      "https://new.moonman.in",
       "http://localhost:3000",
+      "https://portfolio-2-sigma-bice.vercel.app/",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "password"],
