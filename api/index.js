@@ -31,6 +31,7 @@ app.use(
       "https://new.moonman.in",
       "https://new.moonman.in/",
       "http://localhost:3000",
+      "http://localhost:5173",
       "https://portfolio-2-sigma-bice.vercel.app/",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
