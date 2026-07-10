@@ -1,5 +1,7 @@
 const express = require("express");
 require("dotenv").config();
+// Fail fast with a clear error when the vector/RAG env contract is incomplete.
+require("../config/vectorConfig").validateRequiredConfig();
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const { connectToDatabase } = require("../mongo");

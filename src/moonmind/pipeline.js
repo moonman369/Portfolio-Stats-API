@@ -97,7 +97,7 @@ async function retrieveAndRank({ query, sessionId, metadata, requestId }) {
         query: subquery,
         intentPayload,
         metadata,
-        limit: 10,
+        limit: VECTOR_CONFIG.VECTOR_SEARCH_LIMIT,
       });
 
       return { intent: intentPayload.intent, documents: result.documents };

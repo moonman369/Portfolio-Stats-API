@@ -56,16 +56,69 @@ const ENFORCE_SUMMARY_SENTENCE_RANGE = parseBooleanFlag(
   true,
 );
 
+// Required env vars for the autoEmbed vector setup. New names take precedence;
+// the old MOONMIND_* names are honored as fallbacks so existing deploys keep
+// working. `validateRequiredConfig()` fails startup when none of a group is set.
+const REQUIRED_ENV_VARS = Object.freeze([
+  { key: "MONGODB_URI", fallbacks: ["MONGO_URI"] },
+  { key: "VECTOR_COLLECTION_NAME", fallbacks: ["MOONMIND_VECTOR_COLLECTION"] },
+  {
+    key: "VECTOR_INDEX_NAME",
+    fallbacks: ["MOONMIND_VECTOR_INDEX", "MOONMIND_VECTOR_INDEX_NAME"],
+  },
+  { key: "VECTOR_TEXT_FIELD_PATH", fallbacks: [] },
+  { key: "EMBEDDING_MODEL_NAME", fallbacks: [] },
+]);
+
+function readEnv(key, fallbacks = []) {
+  for (const name of [key, ...fallbacks]) {
+    const value = process.env[name];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function validateRequiredConfig() {
+  const missing = REQUIRED_ENV_VARS.filter(
+    ({ key, fallbacks }) => readEnv(key, fallbacks) === undefined,
+  ).map(({ key, fallbacks }) =>
+    fallbacks.length > 0 ? `${key} (or legacy ${fallbacks.join(" / ")})` : key,
+  );
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missing.join(", ")}. ` +
+        "See .env.example for descriptions and placeholder values.",
+    );
+  }
+}
+
 const VECTOR_CONFIG = Object.freeze({
-  DB_NAME: process.env.MOONMIND_DB_NAME || "portfolio-stats-api",
-  DOCUMENT_COLLECTION:
-    process.env.MOONMIND_VECTOR_COLLECTION || "moonmindVectorMemory",
+  validateRequiredConfig,
+  DB_NAME:
+    readEnv("MONGODB_DB_NAME", ["MOONMIND_DB_NAME"]) || "portfolio-stats-api",
+  DOCUMENT_COLLECTION: readEnv("VECTOR_COLLECTION_NAME", [
+    "MOONMIND_VECTOR_COLLECTION",
+  ]),
   METADATA_INDEX_COLLECTION:
     process.env.MOONMIND_METADATA_COLLECTION || "moonmindMetadataIndex",
-  EMBEDDING_MODEL:
-    process.env.MOONMIND_EMBEDDING_MODEL || "text-embedding-3-small",
-  VECTOR_INDEX_NAME:
-    process.env.MOONMIND_VECTOR_INDEX_NAME || "moonmind_vector_index",
+  // Atlas autoEmbed model (e.g. voyage-4). Only used for the `model` option in
+  // $vectorSearch and for logging/health info — the app never embeds anything.
+  EMBEDDING_MODEL: readEnv("EMBEDDING_MODEL_NAME"),
+  VECTOR_INDEX_NAME: readEnv("VECTOR_INDEX_NAME", [
+    "MOONMIND_VECTOR_INDEX",
+    "MOONMIND_VECTOR_INDEX_NAME",
+  ]),
+  // The text field(s) the autoEmbed index embeds. Comma-separated when the
+  // index auto-embeds several fields — $vectorSearch takes a single `path`, so
+  // retrieval runs one search per field and merges by best score.
+  VECTOR_TEXT_FIELD_PATHS: (readEnv("VECTOR_TEXT_FIELD_PATH") || "")
+    .split(",")
+    .map((field) => field.trim())
+    .filter(Boolean),
   MAX_SUMMARY_CHARACTERS: 4000,
   SUMMARY_MIN_SENTENCES,
   SUMMARY_MAX_SENTENCES,
@@ -75,9 +128,12 @@ const VECTOR_CONFIG = Object.freeze({
   // limit. Higher = better recall, slightly more latency. Only affects recall,
   // never correctness, so it is safe to raise.
   VECTOR_NUM_CANDIDATES: parsePositiveInt(
-    process.env.MOONMIND_VECTOR_NUM_CANDIDATES,
+    readEnv("VECTOR_NUM_CANDIDATES", ["MOONMIND_VECTOR_NUM_CANDIDATES"]),
     150,
   ),
+  // Default $vectorSearch result limit (per retrieval arm). The pipeline may
+  // still request more for wide candidate pools.
+  VECTOR_SEARCH_LIMIT: parsePositiveInt(process.env.VECTOR_SEARCH_LIMIT, 10),
   // Reciprocal Rank Fusion constant. Standard default is 60; larger values
   // flatten the contribution of top ranks across arms.
   RRF_K: parsePositiveInt(process.env.MOONMIND_RRF_K, 60),

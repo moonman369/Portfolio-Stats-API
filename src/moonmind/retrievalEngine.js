@@ -157,6 +157,47 @@ function buildMetadataQuery(intentPayload, runtimeMetadata = {}) {
   return clauses.length > 0 ? { $and: clauses } : {};
 }
 
+// Pre-filter for the $vectorSearch stage, restricted to the fields indexed as
+// `filter` type in the autoEmbed index: category, metadata.domain and
+// metadata.subcategory. $vectorSearch filters only support structured operators
+// ($eq/$in/$and/$or...), so free-text/regex entity matching and date-range
+// logic stay in the keyword and metadata arms.
+function buildVectorSearchFilter(intentPayload) {
+  const clauses = [];
+  const domainFilters = intentPayload?.filters?.domain || [];
+
+  if (domainFilters.length > 0) {
+    clauses.push({
+      $or: [
+        { "metadata.domain": { $in: domainFilters } },
+        { category: { $in: domainFilters } },
+      ],
+    });
+  }
+
+  if (
+    typeof intentPayload?.domain === "string" &&
+    intentPayload.domain.trim()
+  ) {
+    clauses.push({ "metadata.domain": { $eq: intentPayload.domain.trim() } });
+  }
+
+  if (
+    Array.isArray(intentPayload?.subcategories) &&
+    intentPayload.subcategories.length > 0
+  ) {
+    clauses.push({
+      "metadata.subcategory": { $in: intentPayload.subcategories },
+    });
+  }
+
+  if (clauses.length === 0) {
+    return null;
+  }
+
+  return clauses.length === 1 ? clauses[0] : { $and: clauses };
+}
+
 function buildKeywordQuery(query, intentPayload) {
   const tokens = [
     query,
@@ -222,7 +263,7 @@ async function retrieveDocuments({
   query,
   intentPayload,
   metadata = {},
-  limit = 10,
+  limit = VECTOR_CONFIG.VECTOR_SEARCH_LIMIT,
 }) {
   const retrievalPlan = intentPayload?.retrieval_plan || {};
   const selectedStrategies = Object.entries(retrievalPlan)
@@ -238,7 +279,11 @@ async function retrieveDocuments({
 
   if (retrievalPlan.semantic) {
     tasks.push(
-      vectorSearch(query, Math.max(limit, 10)).then((rawDocuments) => {
+      vectorSearch(
+        query,
+        Math.max(limit, 10),
+        buildVectorSearchFilter(intentPayload),
+      ).then((rawDocuments) => {
         // Normalize like the other arms, but preserve the raw Atlas score so
         // RRF can carry semantic_score through for the threshold gate.
         const documents = rawDocuments.map((document) => ({
@@ -309,5 +354,6 @@ async function retrieveDocuments({
 module.exports = {
   buildMetadataQuery,
   buildKeywordQuery,
+  buildVectorSearchFilter,
   retrieveDocuments,
 };

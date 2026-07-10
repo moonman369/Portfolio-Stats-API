@@ -4,9 +4,11 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const { debugLog, serializeError } = require("./src/moonmind/utils/debug");
+const VECTOR_CONFIG = require("./config/vectorConfig");
 
-const URI = process.env.MONGO_URI;
-const DB_NAME = "portfolio-stats-api";
+// MONGODB_URI is the canonical name; MONGO_URI is honored as a legacy fallback.
+const URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+const DB_NAME = VECTOR_CONFIG.DB_NAME;
 const COLLECTION_NAME = "gitStatsArchive";
 const STATS_ID = "github_stats";
 

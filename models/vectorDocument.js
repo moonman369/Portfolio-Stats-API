@@ -13,7 +13,6 @@ const vectorDocumentJsonSchema = {
     "summary_for_embedding",
     "content_full",
     "metadata",
-    "embedding",
     "created_at",
     "updated_at",
   ],
@@ -64,10 +63,6 @@ const vectorDocumentJsonSchema = {
           },
         },
       },
-    },
-    embedding: {
-      bsonType: "array",
-      items: { bsonType: ["double", "int", "long", "decimal"] },
     },
     created_at: { bsonType: "string" },
     updated_at: { bsonType: "string" },

@@ -8,11 +8,7 @@ const {
   validateUpdatePayload,
   validateDeletePayload,
 } = require("../validators/memoryValidator");
-const {
-  generateDeterministicSummary,
-  buildEmbeddingInput,
-  generateEmbeddingVector,
-} = require("../utils/embeddingGenerator");
+const { generateDeterministicSummary } = require("../utils/embeddingGenerator");
 
 let schemaEnsured = false;
 
@@ -128,17 +124,14 @@ async function createDocument(payload) {
     summary_for_embedding: summary,
   };
 
-  const embedding = await generateEmbeddingVector(
-    buildEmbeddingInput(documentToPersist),
-  );
-
   const { client, db } = await connectToDatabase({ apiStrict: false });
   const session = client.startSession();
   const now = new Date().toISOString();
 
+  // No client-side embedding: the Atlas autoEmbed index vectorizes the text
+  // field asynchronously after insert.
   const vectorDoc = {
     ...documentToPersist,
-    embedding,
     created_at: now,
     updated_at: now,
   };
@@ -181,18 +174,10 @@ async function updateDocument(payload) {
     summary_for_embedding: summary,
   };
 
-  // Re-embed whenever any input to the embedding text changes (title, tags,
-  // content_full or summary), not just the summary field.
-  const embeddingInputChanged =
-    buildEmbeddingInput(existing) !== buildEmbeddingInput(normalizedUpdate);
-
-  const embedding = embeddingInputChanged
-    ? await generateEmbeddingVector(buildEmbeddingInput(normalizedUpdate))
-    : existing.embedding;
-
+  // No re-embedding here: the Atlas autoEmbed index re-vectorizes the text
+  // field asynchronously whenever the document is replaced.
   const updatedDoc = {
     ...normalizedUpdate,
-    embedding,
     created_at: existing.created_at,
     updated_at: new Date().toISOString(),
   };

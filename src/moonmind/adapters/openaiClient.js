@@ -57,14 +57,6 @@ async function createChatCompletion({ model, messages, responseFormat, temperatu
   });
 }
 
-async function createEmbedding({ model, input }) {
-  return requestOpenAI("/v1/embeddings", {
-    model,
-    input,
-  });
-}
-
 module.exports = {
   createChatCompletion,
-  createEmbedding,
 };
