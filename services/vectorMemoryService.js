@@ -10,8 +10,8 @@ const {
 } = require("../validators/memoryValidator");
 const {
   generateDeterministicSummary,
-  buildEmbeddingInput,
-  generateEmbeddingVector,
+  buildEmbeddingText,
+  generateDocumentEmbedding,
 } = require("../utils/embeddingGenerator");
 
 let schemaEnsured = false;
@@ -128,9 +128,7 @@ async function createDocument(payload) {
     summary_for_embedding: summary,
   };
 
-  const embedding = await generateEmbeddingVector(
-    buildEmbeddingInput(documentToPersist),
-  );
+  const embedding = await generateDocumentEmbedding(documentToPersist);
 
   const { client, db } = await connectToDatabase({ apiStrict: false });
   const session = client.startSession();
@@ -182,13 +180,18 @@ async function updateDocument(payload) {
   };
 
   // Re-embed whenever any input to the embedding text changes (title, tags,
-  // content_full or summary), not just the summary field.
+  // content_full or summary), not just the summary field. Also re-embed when the
+  // existing document has no vector yet, which is the case for every document
+  // seeded into moonmind_documents_v3 before the Gemini migration.
   const embeddingInputChanged =
-    buildEmbeddingInput(existing) !== buildEmbeddingInput(normalizedUpdate);
+    buildEmbeddingText(existing) !== buildEmbeddingText(normalizedUpdate);
+  const hasExistingEmbedding =
+    Array.isArray(existing.embedding) && existing.embedding.length > 0;
 
-  const embedding = embeddingInputChanged
-    ? await generateEmbeddingVector(buildEmbeddingInput(normalizedUpdate))
-    : existing.embedding;
+  const embedding =
+    embeddingInputChanged || !hasExistingEmbedding
+      ? await generateDocumentEmbedding(normalizedUpdate)
+      : existing.embedding;
 
   const updatedDoc = {
     ...normalizedUpdate,
@@ -259,8 +262,105 @@ async function deleteDocument(payload) {
   return { id, deleted: true };
 }
 
+// Projection covering exactly the fields buildEmbeddingText() reads.
+const EMBEDDING_SOURCE_PROJECTION = {
+  _id: 0,
+  id: 1,
+  title: 1,
+  tags: 1,
+  summary_for_embedding: 1,
+  content_full: 1,
+};
+
+// Documents seeded without a vector, or whose vector was written as empty/null.
+const MISSING_EMBEDDING_FILTER = {
+  $or: [
+    { embedding: { $exists: false } },
+    { embedding: null },
+    { embedding: { $size: 0 } },
+  ],
+};
+
+// The regeneration paths intentionally skip ensureStorage(). That helper applies
+// a strict $jsonSchema via collMod, and moonmind_documents_v3 currently has no
+// validator. Installing one mid-backfill would make every subsequent updateOne
+// revalidate the whole document, so a single legacy doc with an out-of-enum
+// metadata value would block its own re-embedding. Backfill first; the validator
+// is still applied by the create/update paths.
+async function embedAndStore(collection, document) {
+  const embedding = await generateDocumentEmbedding(document);
+  const updatedAt = new Date().toISOString();
+
+  await collection.updateOne(
+    { id: document.id },
+    { $set: { embedding, updated_at: updatedAt } },
+  );
+
+  return { id: document.id, dimensions: embedding.length, updated_at: updatedAt };
+}
+
+async function regenerateDocumentEmbedding(id) {
+  const { id: validatedId } = validateDeletePayload({ id });
+  const { db } = await connectToDatabase({ apiStrict: false });
+  const collection = db.collection(VECTOR_CONFIG.DOCUMENT_COLLECTION);
+
+  const document = await collection.findOne(
+    { id: validatedId },
+    { projection: EMBEDDING_SOURCE_PROJECTION },
+  );
+
+  if (!document) {
+    const error = new Error("Document not found for provided id");
+    error.name = "NotFoundError";
+    throw error;
+  }
+
+  return embedAndStore(collection, document);
+}
+
+/**
+ * Re-embed every document, or only those missing a vector.
+ *
+ * Sequential by design: gemini-embedding-2 blends multiple inputs in one request
+ * into a single vector, and issuing N concurrent requests is the fastest way to
+ * hit the rate limit. Per-document failures are collected rather than thrown so
+ * one bad document cannot abort the whole backfill.
+ */
+async function regenerateAllEmbeddings({ onlyMissing = false } = {}) {
+  const { db } = await connectToDatabase({ apiStrict: false });
+  const collection = db.collection(VECTOR_CONFIG.DOCUMENT_COLLECTION);
+  const filter = onlyMissing ? MISSING_EMBEDDING_FILTER : {};
+
+  const cursor = collection.find(filter, {
+    projection: EMBEDDING_SOURCE_PROJECTION,
+  });
+
+  const failures = [];
+  let processed = 0;
+  let updated = 0;
+
+  for (let document = await cursor.next(); document; document = await cursor.next()) {
+    processed += 1;
+
+    try {
+      await embedAndStore(collection, document);
+      updated += 1;
+    } catch (error) {
+      failures.push({
+        id: document.id,
+        error: { name: error?.name || "EmbeddingError" },
+        message: error?.message || "Embedding generation failed",
+      });
+    }
+  }
+
+  return { onlyMissing, processed, updated, failed: failures.length, failures };
+}
+
 module.exports = {
   createDocument,
   updateDocument,
   deleteDocument,
+  regenerateDocumentEmbedding,
+  regenerateAllEmbeddings,
 };

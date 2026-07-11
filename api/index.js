@@ -31,6 +31,7 @@ app.use(
       "https://new.moonman.in",
       "https://new.moonman.in/",
       "http://localhost:3000",
+      "http://localhost:5173",
       "https://portfolio-2-sigma-bice.vercel.app/",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -40,6 +41,26 @@ app.use(
 );
 
 // Health check (dependency-free; used by Docker HEALTHCHECK and uptime probes)
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Liveness probe
+ *     description: Dependency-free health check used by Docker and uptime probes.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is up
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: "ok" }
+ *                 uptime: { type: number, example: 1234.56 }
+ *                 timestamp:
+ *                   { type: string, format: date-time, example: "2026-07-11T13:00:00.000Z" }
+ */
 app.get("/health", (req, res) =>
   res.status(200).json({
     status: "ok",

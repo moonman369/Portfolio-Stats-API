@@ -57,14 +57,9 @@ async function createChatCompletion({ model, messages, responseFormat, temperatu
   });
 }
 
-async function createEmbedding({ model, input }) {
-  return requestOpenAI("/v1/embeddings", {
-    model,
-    input,
-  });
-}
-
+// Embeddings moved to src/moonmind/adapters/geminiClient.js. OpenAI is still the
+// provider for chat completions: intent extraction, response generation, the LLM
+// reranker and query decomposition.
 module.exports = {
   createChatCompletion,
-  createEmbedding,
 };

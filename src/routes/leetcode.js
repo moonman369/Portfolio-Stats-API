@@ -7,6 +7,8 @@ const { getLeetcodeStats } = require("../moonmind/statsService");
  * /api/v1/leetcode/{username}:
  *   get:
  *     summary: Fetch Leetcode stats for a user
+ *     description: Public endpoint.
+ *     tags: [Stats]
  *     parameters:
  *       - in: path
  *         name: username
@@ -14,6 +16,7 @@ const { getLeetcodeStats } = require("../moonmind/statsService");
  *         schema:
  *           type: string
  *         description: Leetcode username
+ *         example: moonman369
  *     responses:
  *       200:
  *         description: Leetcode stats fetched successfully

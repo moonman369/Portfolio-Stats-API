@@ -98,10 +98,10 @@ function assertSummaryConstraints(document) {
   }
 
   // The sentence-range guard exists to keep the *embedded* text substantial.
-  // Retrieval now embeds content_full when present (utils/embeddingGenerator.js
-  // buildEmbeddingInput), so summary_for_embedding is only the embedding source
-  // when content_full is empty. When content_full is provided the summary is a
-  // display-only field, so we don't constrain its shape.
+  // buildEmbeddingText() now always embeds summary_for_embedding alongside
+  // content_full rather than treating it as a fallback, so this guard is looser
+  // than it strictly needs to be when content_full is present. It is left as-is
+  // to avoid rejecting payloads that the current API contract accepts.
   const hasContentFull =
     typeof document.content_full === "string" &&
     document.content_full.trim().length > 0;
