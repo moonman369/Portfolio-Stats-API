@@ -1,6 +1,6 @@
 "use strict";
 
-const { createEmbedding } = require("../src/moonmind/adapters/openaiClient");
+const { embedText } = require("../src/moonmind/adapters/geminiClient");
 const VECTOR_CONFIG = require("../config/vectorConfig");
 
 function generateDeterministicSummary(document) {
@@ -24,45 +24,79 @@ function generateDeterministicSummary(document) {
   ].join(" ");
 }
 
-// Build the text that is actually embedded. Previously only
-// `summary_for_embedding` was vectorized — and when auto-generated that is
-// metadata boilerplate, so vectors encoded structure rather than substance.
-// We now embed title + tags + the real `content_full` when it exists, falling
-// back to the summary. The human-facing `summary_for_embedding` field is left
-// untouched for display.
-function buildEmbeddingInput(document = {}) {
-  const title = typeof document.title === "string" ? document.title.trim() : "";
+// Truncate on a word boundary when one is reasonably close to the cut, so the
+// model is never fed a half-word. Falls back to a hard cut otherwise.
+function truncateToChars(text, maxChars) {
+  if (maxChars <= 0) {
+    return "";
+  }
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  const slice = text.slice(0, maxChars);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > maxChars * 0.8 ? slice.slice(0, lastSpace) : slice;
+  return cut.trimEnd();
+}
+
+// gemini-embedding-2 carries task intent in the prompt rather than a taskType
+// parameter. Google specifies these literal formats for asymmetric retrieval and
+// notes the task string must be used consistently, so the document template here
+// and the query template below must not drift apart.
+//
+// Unlike the previous OpenAI input, `summary_for_embedding` is now always
+// included alongside `content_full` rather than used only as a fallback.
+function buildEmbeddingText(document = {}) {
+  const title =
+    typeof document.title === "string" && document.title.trim()
+      ? document.title.trim()
+      : "none";
+
   const tags = Array.isArray(document.tags)
     ? document.tags.filter((tag) => typeof tag === "string" && tag.trim())
     : [];
-  const content =
-    typeof document.content_full === "string" && document.content_full.trim()
-      ? document.content_full.trim()
-      : document.summary_for_embedding || "";
 
-  return [title, tags.length ? `Tags: ${tags.join(", ")}` : "", content]
+  const summary =
+    typeof document.summary_for_embedding === "string"
+      ? document.summary_for_embedding.trim()
+      : "";
+
+  const content =
+    typeof document.content_full === "string" ? document.content_full.trim() : "";
+
+  // Content goes last so overflow truncation trims the long tail of
+  // content_full rather than dropping tags or the summary entirely.
+  const body = [tags.length ? `Tags: ${tags.join(", ")}` : "", summary, content]
     .filter(Boolean)
     .join("\n");
+
+  const prefix = `title: ${title} | text: `;
+  const budget = VECTOR_CONFIG.MAX_EMBEDDING_INPUT_CHARS - prefix.length;
+
+  return `${prefix}${truncateToChars(body, budget)}`;
 }
 
-async function generateEmbeddingVector(summaryText) {
-  const response = await createEmbedding({
-    model: VECTOR_CONFIG.EMBEDDING_MODEL,
-    input: summaryText,
-  });
+function buildQueryEmbeddingText(query) {
+  const trimmed = typeof query === "string" ? query.trim() : "";
+  const prefix = "task: search result | query: ";
+  const budget = VECTOR_CONFIG.MAX_EMBEDDING_INPUT_CHARS - prefix.length;
 
-  const embedding = response?.data?.[0]?.embedding;
-  if (!Array.isArray(embedding) || embedding.length === 0) {
-    const error = new Error("Embedding generation failed: empty vector response");
-    error.name = "EmbeddingError";
-    throw error;
-  }
+  return `${prefix}${truncateToChars(trimmed, budget)}`;
+}
 
-  return embedding;
+async function generateDocumentEmbedding(document) {
+  return embedText(buildEmbeddingText(document));
+}
+
+async function generateQueryEmbedding(query) {
+  return embedText(buildQueryEmbeddingText(query));
 }
 
 module.exports = {
   generateDeterministicSummary,
-  buildEmbeddingInput,
-  generateEmbeddingVector,
+  buildEmbeddingText,
+  buildQueryEmbeddingText,
+  generateDocumentEmbedding,
+  generateQueryEmbedding,
 };

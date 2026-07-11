@@ -9,12 +9,34 @@ require("dotenv").config();
  * @swagger
  * /api/v1/refresh:
  *   get:
- *     summary: Refresh user stats
+ *     summary: Refresh GitHub stats from the live GitHub API
+ *     description: >
+ *       Authenticates with the `secret` query parameter, not the `password`
+ *       header used by the other protected endpoints.
+ *     tags: [Stats]
+ *     parameters:
+ *       - in: query
+ *         name: secret
+ *         required: true
+ *         description: Must equal the REFRESH_SECRET env var.
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: useWorker
+ *         required: false
+ *         description: >
+ *           When "true", dispatches to a worker thread and returns immediately.
+ *           Otherwise the refresh runs inline and the response reflects its result.
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
  *     responses:
  *       200:
- *         description: Refresh worker has been triggered successfully
+ *         description: Refresh completed, or worker triggered successfully
+ *       401:
+ *         description: Missing or incorrect `secret` query parameter
  *       500:
- *         description: Server error
+ *         description: Server error, or REFRESH_PROFILE is not configured
  */
 router.get("/", async (req, resp) => {
   if (req.query["secret"] !== process.env.REFRESH_SECRET) {

@@ -7,6 +7,8 @@ const { getGithubStats } = require("../moonmind/statsService");
  * /api/v1/github:
  *   get:
  *     summary: Fetch GitHub stats
+ *     description: Public endpoint. Returns the cached GitHub stats archive.
+ *     tags: [Stats]
  *     responses:
  *       200:
  *         description: GitHub stats fetched successfully

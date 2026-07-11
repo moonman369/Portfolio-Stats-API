@@ -11,6 +11,44 @@ const router = express.Router();
 
 router.use(moonmindMemoryRoutes);
 
+/**
+ * @swagger
+ * /api/v1/moonmind/chat:
+ *   post:
+ *     summary: MoonMind intent-driven chat (alias of /api/v1/chat)
+ *     description: >
+ *       Identical behaviour to `POST /api/v1/chat`; both call the same pipeline.
+ *     tags: [MoonMind Chat]
+ *     security:
+ *       - MoonMindPassword: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChatRequest'
+ *     responses:
+ *       200:
+ *         description: MoonMind response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
+ *       400:
+ *         description: Validation error (prompt missing or empty)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ */
 router.post("/chat", requireMoonMindPassword, async (req, res) => {
   debugLog("moonmind.route.request", {
     hasPrompt: typeof req.body?.prompt === "string",

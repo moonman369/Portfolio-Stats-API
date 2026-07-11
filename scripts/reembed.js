@@ -1,17 +1,16 @@
 "use strict";
 
 /**
- * One-time backfill: recompute the `embedding` of every document in the vector
- * collection using the improved embedding input (title + tags + content_full,
- * falling back to the summary). Run this AFTER deploying the embeddingGenerator
- * change so stored vectors match the new query-side representation.
+ * Backfill: recompute the `embedding` of documents in the vector collection with
+ * Gemini, using the same code path as POST /documents/embeddings/regenerate.
  *
  * Usage:
- *   node scripts/reembed.js --dry-run     # report only, no writes
- *   node scripts/reembed.js               # re-embed and update in place
+ *   node scripts/reembed.js --dry-run       # report the embedding input, no writes
+ *   node scripts/reembed.js                 # re-embed every document
+ *   node scripts/reembed.js --only-missing  # embed only documents with no vector
  *
- * Safe to re-run (idempotent-ish): it only rewrites `embedding` + `updated_at`.
- * Recommended: run against a staging copy first and compare eval metrics
+ * Safe to re-run: it only rewrites `embedding` + `updated_at`. Recommended: run
+ * against a staging copy first and compare eval metrics
  * (scripts/eval/retrievalEval.js) before promoting to production.
  */
 
@@ -21,65 +20,58 @@ require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") }
 
 const { connectToDatabase } = require("../mongo");
 const VECTOR_CONFIG = require("../config/vectorConfig");
-const {
-  buildEmbeddingInput,
-  generateEmbeddingVector,
-} = require("../utils/embeddingGenerator");
+const { buildEmbeddingText } = require("../utils/embeddingGenerator");
+const { regenerateAllEmbeddings } = require("../services/vectorMemoryService");
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const ONLY_MISSING = process.argv.includes("--only-missing");
 
-async function main() {
+async function reportDryRun() {
   const { db } = await connectToDatabase({ apiStrict: false });
   const collection = db.collection(VECTOR_CONFIG.DOCUMENT_COLLECTION);
+  const filter = ONLY_MISSING ? { embedding: { $exists: false } } : {};
 
-  const cursor = collection.find(
-    {},
-    {
-      projection: {
-        _id: 0,
-        id: 1,
-        title: 1,
-        tags: 1,
-        content_full: 1,
-        summary_for_embedding: 1,
-      },
+  const cursor = collection.find(filter, {
+    projection: {
+      _id: 0,
+      id: 1,
+      title: 1,
+      tags: 1,
+      content_full: 1,
+      summary_for_embedding: 1,
     },
-  );
+  });
 
   let processed = 0;
-  let updated = 0;
-  let failed = 0;
-
-  // eslint-disable-next-line no-await-in-loop
   for (let doc = await cursor.next(); doc; doc = await cursor.next()) {
     processed += 1;
-    const input = buildEmbeddingInput(doc);
-
-    if (DRY_RUN) {
-      console.log(`[dry-run] ${doc.id} :: ${input.slice(0, 120).replace(/\n/g, " ")}`);
-      continue;
-    }
-
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const embedding = await generateEmbeddingVector(input);
-      // eslint-disable-next-line no-await-in-loop
-      await collection.updateOne(
-        { id: doc.id },
-        { $set: { embedding, updated_at: new Date().toISOString() } },
-      );
-      updated += 1;
-      console.log(`[ok] ${doc.id} (${embedding.length} dims)`);
-    } catch (error) {
-      failed += 1;
-      console.error(`[fail] ${doc.id}: ${error?.message}`);
-    }
+    const input = buildEmbeddingText(doc);
+    console.log(`[dry-run] ${doc.id} :: ${input.slice(0, 120).replace(/\n/g, " ")}`);
   }
 
+  console.log(`\nDone. processed=${processed} dryRun=true onlyMissing=${ONLY_MISSING}`);
+  return 0;
+}
+
+async function main() {
   console.log(
-    `\nDone. processed=${processed} updated=${updated} failed=${failed} dryRun=${DRY_RUN}`,
+    `collection=${VECTOR_CONFIG.DOCUMENT_COLLECTION} model=${VECTOR_CONFIG.EMBEDDING_MODEL} dims=${VECTOR_CONFIG.EMBEDDING_DIMENSIONS}`,
   );
-  process.exit(failed > 0 ? 1 : 0);
+
+  if (DRY_RUN) {
+    process.exit(await reportDryRun());
+  }
+
+  const result = await regenerateAllEmbeddings({ onlyMissing: ONLY_MISSING });
+
+  result.failures.forEach((failure) => {
+    console.error(`[fail] ${failure.id}: ${failure.message}`);
+  });
+
+  console.log(
+    `\nDone. processed=${result.processed} updated=${result.updated} failed=${result.failed} onlyMissing=${ONLY_MISSING}`,
+  );
+  process.exit(result.failed > 0 ? 1 : 0);
 }
 
 main().catch((error) => {

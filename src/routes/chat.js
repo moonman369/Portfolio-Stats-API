@@ -13,28 +13,40 @@ const router = express.Router();
  * /api/v1/chat:
  *   post:
  *     summary: MoonMind intent-driven chat
+ *     description: >
+ *       Embeds the prompt with Gemini, retrieves through the semantic, keyword
+ *       and metadata arms fused with RRF, then generates a grounded summary.
+ *       GitHub and LeetCode stats questions are routed separately.
+ *     tags: [MoonMind Chat]
+ *     security:
+ *       - MoonMindPassword: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - prompt
- *             properties:
- *               prompt:
- *                 type: string
- *               sessionId:
- *                 type: string
- *               metadata:
- *                 type: object
+ *             $ref: '#/components/schemas/ChatRequest'
  *     responses:
  *       200:
  *         description: MoonMind response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ChatResponse'
  *       400:
- *         description: Validation error
+ *         description: Validation error (prompt missing or empty)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
  *       500:
  *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.post("/", requireMoonMindPassword, async (req, res) => {
   debugLog("chat.route.request.received", {

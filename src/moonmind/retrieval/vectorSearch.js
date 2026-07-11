@@ -1,29 +1,25 @@
 const { connectToDatabase } = require("../../../mongo");
-const { createEmbedding } = require("../adapters/openaiClient");
+const { generateQueryEmbedding } = require("../../../utils/embeddingGenerator");
 const { debugLog, serializeError } = require("../utils/debug");
 const VECTOR_CONFIG = require("../../../config/vectorConfig");
 
 // Resolve from the shared VECTOR_CONFIG so the read path stays aligned with the
-// write path (same collection, index and embedding model). MOONMIND_VECTOR_INDEX
-// is still honored as a fallback for the older env-var name.
-const EMBEDDING_MODEL = VECTOR_CONFIG.EMBEDDING_MODEL;
+// write path (same collection, index and embedding model).
 const VECTOR_COLLECTION = VECTOR_CONFIG.DOCUMENT_COLLECTION;
-const VECTOR_INDEX =
-  process.env.MOONMIND_VECTOR_INDEX || VECTOR_CONFIG.VECTOR_INDEX_NAME;
-const VECTOR_FIELD = process.env.MOONMIND_VECTOR_FIELD || "embedding";
+const VECTOR_INDEX = VECTOR_CONFIG.VECTOR_INDEX_NAME;
+const VECTOR_FIELD = VECTOR_CONFIG.VECTOR_FIELD;
 
+// The query is embedded with the `task: search result | query: ...` template
+// while documents use `title: ... | text: ...`. Both sides must keep using the
+// templates in utils/embeddingGenerator.js or the vectors stop being comparable.
 async function embedQuery(query) {
   debugLog("vectorSearch.embed.start", {
     queryLength: typeof query === "string" ? query.length : 0,
-    model: EMBEDDING_MODEL,
+    model: VECTOR_CONFIG.EMBEDDING_MODEL,
   });
-  const response = await createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: query,
-  });
-  const embedding = response.data[0].embedding;
+  const embedding = await generateQueryEmbedding(query);
   debugLog("vectorSearch.embed.success", {
-    dimensions: Array.isArray(embedding) ? embedding.length : 0,
+    dimensions: embedding.length,
   });
   return embedding;
 }
